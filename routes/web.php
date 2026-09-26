@@ -1,11 +1,11 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\HealthCheckController;
+use App\Http\Controllers\HealthController;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/health', [HealthCheckController::class, 'check']);
-Route::get('/healthcheck', [HealthCheckController::class, 'check']);
+Route::get('/health', [HealthController::class, 'check']);
+Route::get('/healthcheck', [HealthController::class, 'check']);
