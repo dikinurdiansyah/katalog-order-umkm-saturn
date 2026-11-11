@@ -5,7 +5,60 @@
 @source '../**/*.blade.php';
 @source '../**/*.js';
 
+/* =========================================
+   1. TEMA WARNA DAPUR TH SANT (CSS Variables)
+   Agar kode Blade lama (var(--brown-dark)) tetap jalan
+   ========================================= */
+:root {
+    --brown-dark: #8B4513;
+    --brown-medium: #A0522D;
+    --brown-light: #D2691E;
+
+    --cream-bg: #FDF6EC;
+    --cream-light: #FFF8F0;
+    --cream-card: #FFFFFF;
+
+    --orange-fav: #E8751A;
+    --orange-light: #FDEBD0;
+
+    --green-success: #10B981;
+    --green-light: #D1FAE5;
+    --red-danger: #DC2626;
+
+    --text-dark: #1F2937;
+    --text-muted: #6B7280;
+    --border-color: #E5E7EB;
+
+    --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 12px rgba(139,69,19,0.08);
+    --shadow-lg: 0 10px 25px rgba(139,69,19,0.1);
+}
+
+/* =========================================
+   2. TAILWIND V4 THEME CONFIGURATION
+   Agar bisa pakai class Tailwind seperti bg-brown-dark, text-cream-bg
+   ========================================= */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-brown-dark: #8B4513;
+    --color-brown-medium: #A0522D;
+    --color-brown-light: #D2691E;
+    --color-cream-bg: #FDF6EC;
+    --color-cream-light: #FFF8F0;
+    --color-cream-card: #FFFFFF;
+    --color-orange-fav: #E8751A;
+    --color-orange-light: #FDEBD0;
+    --color-green-success: #10B981;
+    --color-red-danger: #DC2626;
+}
+
+/* =========================================
+   3. BASE STYLES
+   ========================================= */
+body {
+    background-color: var(--cream-bg);
+    color: var(--text-dark);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
 }
