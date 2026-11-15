@@ -47,12 +47,6 @@
 <!-- ✅ CONTAINER RESPONSIF -->
 <div class="container-fluid px-3 px-lg-5 pt-4 pb-5">
 
-    <!-- Doc ID Bar (Hidden on mobile) -->
-    <div class="d-none d-md-flex justify-content-between align-items-center mb-3 pb-2" style="border-bottom: 1px solid var(--border-color);">
-        <small class="font-mono" style="font-size: 0.7rem; color: var(--text-muted);">DOC_ID: P2_PRD_DETAIL</small>
-        <small class="font-mono" style="font-size: 0.7rem; color: var(--text-muted);">SPEC V1.0.4 [LODI]</small>
-    </div>
-
     <div class="row g-4">
         <!-- KOLOM KIRI: Gambar Produk (Gallery) -->
         <div class="col-lg-6">
@@ -104,7 +98,8 @@
 
             <div class="card-warm p-3 p-md-4 d-flex align-items-baseline gap-2 flex-wrap mb-4" style="border-radius: 12px;">
                 <span class="fw-bold text-brown" style="font-size: clamp(1.8rem, 4vw, 2.5rem);">Rp {{ number_format($product->price, 0, ',', '.') }}</span>
-                <span class="text-muted" style="font-size: 0.95rem;">/ porsi bambu</span>
+                <!-- ✅ PERBAIKAN: Satuan dinamis (cup untuk minuman, porsi untuk makanan) -->
+                <span class="text-muted" style="font-size: 0.95rem;">/ {{ $isMinuman ? 'cup' : 'porsi' }}</span>
             </div>
 
             <div class="mb-4">
@@ -118,7 +113,10 @@
                     <div class="d-flex flex-column gap-2">
                         <div class="d-flex align-items-center gap-2">
                             <i class="bi bi-check-square-fill text-brown"></i>
-                            <span style="font-size: 0.9rem;">Porsi isi 4 butir ukuran medium-large</span>
+                            <!-- ✅ PERBAIKAN: Teks deskripsi dinamis berdasarkan kategori minuman/makanan -->
+                            <span style="font-size: 0.9rem;">
+                                {{ $isMinuman ? 'Tersedia dalam ukuran cup medium-large (±400ml)' : 'Porsi isi 4 butir ukuran medium-large' }}
+                            </span>
                         </div>
                         <div class="d-flex align-items-center gap-2">
                             <i class="bi bi-check-square-fill text-brown"></i>
@@ -175,7 +173,7 @@
                     <small class="font-mono text-muted" style="font-size: 0.75rem;">OPSIONAL</small>
                 </div>
                 <textarea name="notes" class="form-control-warm w-100" rows="3" maxlength="120"
-                          placeholder="Contoh: Saus dipisah dalam wadah plastik, kukus sedikit lebih garing..."
+                          placeholder="Contoh: Saus dipisah dalam wadah plastik, es batu dipisah..."
                           oninput="document.getElementById('charCount').textContent = this.value.length"
                           style="border-radius: 12px; border: 1px solid var(--border-color); padding: 12px;"></textarea>
                 <div class="text-end mt-1">

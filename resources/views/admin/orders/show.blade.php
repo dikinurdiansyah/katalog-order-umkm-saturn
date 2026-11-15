@@ -188,10 +188,10 @@
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <div>
                     <div class="font-mono" style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">TUJUAN PENGIRIMAN</div>
-                    <div class="fw-bold mt-1" style="font-size: 0.9rem;">{{ $order->shipping_address ?? 'Alamat tidak tersedia' }}</div>
+                    <div class="fw-bold mt-1" style="font-size: 0.9rem;">{{ Str::title($order->shipping_address) ?? 'Alamat tidak tersedia' }}</div>
                 </div>
                 @if($order->fulfillment_method !== 'PICKUP')
-                <span class="badge" style="background: var(--cream); color: var(--brown-dark); font-size: 0.7rem;">Est. 3.2 km</span>
+                <span class="badge" style="background: var(--cream); color: var(--brown-dark); font-size: 0.7rem;" id="route-estimate">Est. Menghitung...</span>
                 @endif
             </div>
 
@@ -204,7 +204,7 @@
                 <div>
                     <div class="fw-bold" style="font-size: 0.9rem; color: var(--brown-dark);">Detail Rute</div>
                     <small class="text-muted"> Dari: Dapur Th Sant</small><br>
-                    <small class="text-muted">🎯 Ke: {{ $order->shipping_address ?? 'Bandung, Jawa Barat' }}</small>
+                    <small class="text-muted">🎯 Ke: {{ Str::title($order->shipping_address ?? 'Bandung, Jawa Barat') }}</small>
                 </div>
             </div>
             @else
@@ -275,7 +275,6 @@
             </div>
         </div>
 
-        <!-- ✅ BAGIAN INI YANG DIPERBAIKI SECARA TOTAL (SUPER ROBUST) -->
         <div class="admin-card mb-4" style="border-left: 4px solid {{ $order->payment?->payment_status === 'VERIFIED' ? 'var(--green-stock)' : 'var(--orange-fav)' }};">
             <div class="card-header-custom">
                 <div class="card-title-custom"><i class="bi bi-bank"></i> BUKTI PEMBAYARAN ({{ $order->payment_method }})</div>
@@ -291,24 +290,15 @@
             @if($order->payment && $order->payment->receipt_image_path)
                 @php
                     $rawPath = $order->payment->receipt_image_path;
-                    // 1. Bersihkan prefix 'storage/' agar tidak dobel (storage/storage/...)
                     $cleanPath = str_replace('storage/', '', $rawPath);
-
-                    // 2. Asumsi standar Laravel (menggunakan symlink public/storage)
                     $imageUrl = asset('storage/' . $cleanPath);
-
-                    // 3. FALLBACK: Jika file ternyata tersimpan langsung di folder public/ (bukan di storage/app/public)
                     if (!file_exists(public_path('storage/' . $cleanPath)) && file_exists(public_path($cleanPath))) {
                         $imageUrl = asset($cleanPath);
                     }
                 @endphp
 
                 <div class="text-center mb-3 p-3" style="background: var(--cream-light); border-radius: 8px;">
-                    <img src="{{ $imageUrl }}"
-                         class="img-fluid rounded"
-                         style="max-height: 350px; max-width: 100%;"
-                         onerror="this.onerror=null; this.src='https://via.placeholder.com/350x200/ffebee/e53935?text=GAMBAR+TIDAK+DITEMUKAN';">
-
+                    <img src="{{ $imageUrl }}" class="img-fluid rounded" style="max-height: 350px; max-width: 100%;" onerror="this.onerror=null; this.src='https://via.placeholder.com/350x200/ffebee/e53935?text=GAMBAR+TIDAK+DITEMUKAN';">
                     <div class="mt-2">
                         <a href="{{ $imageUrl }}" target="_blank" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-box-arrow-up-right"></i> Buka Ukuran Penuh
@@ -316,10 +306,6 @@
                     </div>
                     <div class="mt-2 font-mono" style="font-size: 0.75rem; color: var(--text-muted);">
                         Jumlah yang Ditransfer: <strong>Rp {{ number_format($order->payment->amount_paid ?? 0, 0, ',', '.') }}</strong>
-                    </div>
-                    <!-- Debug info kecil jika masih error, bisa dihapus nanti kalau sudah beres -->
-                    <div class="mt-1" style="font-size: 0.65rem; color: #999;">
-                        Path DB: {{ $rawPath }}
                     </div>
                 </div>
             @else
@@ -445,16 +431,11 @@
     </div>
 </div>
 
-<div class="text-center mt-4 font-mono" style="font-size: 0.7rem; color: var(--text-muted);">
-    BLUEPRINT: ADMIN_SPEC_v1.0 // DAPUR TH SANT • {{ $nowWIB->format('d/m/Y H:i') }} WIB
-</div>
-
 <!-- ========================================== -->
 <!-- ✅ AREA CETAK STRUK DENGAN WAKTU REALTIME -->
 <!-- ========================================== -->
 <div id="area-cetak-struk" style="display: none;">
     <div style="text-align: center; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #000; width: 80mm; padding: 5mm;">
-
         @php
             $settings = \App\Models\Setting::firstWhere('key', 'outlet_info');
             $data = $settings ? (is_array($settings->value) ? $settings->value : json_decode($settings->value, true)) : [];
@@ -469,10 +450,11 @@
             <div style="font-size: 28px; margin-bottom: 5px;">🥟</div>
         @endif
 
-        <div style="font-size: 16px; font-weight: bold; margin-bottom: 3px;">DAPUR TH SANT</div>
-        <div style="font-size: 11px; margin-bottom: 2px;">Dimsum Kukus & Goreng Fresh</div>
-        <div style="font-size: 10px; margin-bottom: 2px;">Jl. Ciumbuleuit No. 88, Bandung</div>
-        <div style="font-size: 10px; margin-bottom: 8px;">WA: 0812-3456-7890</div>
+        {{-- ✅ PERBAIKAN 3 & 4: ALAMAT & WA STRUK MENJADI DINAMIS --}}
+        <div style="font-size: 16px; font-weight: bold; margin-bottom: 3px;">{{ strtoupper($data['business_name'] ?? 'DAPUR TH SANT') }}</div>
+        <div style="font-size: 11px; margin-bottom: 2px;">{{ $data['tagline'] ?? 'Dimsum Kukus & Goreng Fresh' }}</div>
+        <div style="font-size: 10px; margin-bottom: 2px;">{{ $data['address'] ?? 'Jl. Cikareo Legok, Desa Alamendah, Kec. Rancabali, Kab. Bandung' }}</div>
+        <div style="font-size: 10px; margin-bottom: 8px;">WA: {{ $data['whatsapp'] ?? '0812-3456-7890' }}</div>
 
         <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
 
@@ -660,23 +642,24 @@
 
     @if($order->fulfillment_method !== 'PICKUP')
     document.addEventListener('DOMContentLoaded', function() {
-        // ✅ AMBIL KOORDINAT DARI DATABASE AGAR SINKRON DENGAN PENGATURAN TOKO
-        const dapurLat = {{ $data['latitude'] ?? -6.8635 }};
-        const dapurLng = {{ $data['longitude'] ?? 107.6105 }};
-
+        // ✅ PERBAIKAN 1: KOORDINAT ALAMENDAH, RANCABALI
+        const dapurLat = {{ $data['latitude'] ?? -7.1229831 }};
+        const dapurLng = {{ $data['longitude'] ?? 107.4331362 }};
         const customerLat = {{ $order->shipping_latitude ?? -6.9035 }};
         const customerLng = {{ $order->shipping_longitude ?? 107.6195 }};
 
-        const map = L.map('orderMap').setView([dapurLat, dapurLng], 13);
+        const map = L.map('orderMap');
+
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap'
         }).addTo(map);
 
+        // ✅ PERBAIKAN 2: FALLBACK POPUP ALAMAT BENAR
         L.marker([dapurLat, dapurLng]).addTo(map)
-            .bindPopup('<b>🏠 Dapur Th Sant</b><br>{{ $data["address"] ?? "Jl. Ciumbuleuit No. 88, Bandung" }}');
+            .bindPopup('<b>🏠 Dapur Th Sant</b><br>{{ addslashes($data["address"] ?? "Jl. Cikareo Legok, Desa Alamendah, Kec. Rancabali, Kab. Bandung") }}');
 
         L.marker([customerLat, customerLng]).addTo(map)
-            .bindPopup('<b>🎯 Tujuan Pengiriman</b><br>{{ addslashes($order->shipping_address ?? "Bandung") }}');
+            .bindPopup('<b>🎯 Tujuan Pengiriman</b><br>{{ addslashes($order->shipping_address ?? "Lokasi Pelanggan") }}');
 
         const routingControl = L.Routing.control({
             waypoints: [
@@ -694,13 +677,18 @@
             createMarker: function() { return null; }
         }).addTo(map);
 
+        map.fitBounds([
+            [dapurLat, dapurLng],
+            [customerLat, customerLng]
+        ], { padding: [30, 30] });
+
         routingControl.on('routesfound', function(e) {
             const summary = e.routes[0].summary;
-            const distanceKm = (summary.totalDistance / 1000).toFixed(2);
+            const distanceKm = (summary.totalDistance / 1000).toFixed(1);
             const timeMin = Math.round(summary.totalTime / 60);
-            const badge = document.querySelector('.badge[style*="Est."]');
+            const badge = document.getElementById('route-estimate');
             if (badge) {
-                badge.textContent = `Est. ${distanceKm} km • ${timeMin} menit`;
+                badge.textContent = `Est. ${distanceKm} km • ${timeMin} mnt`;
             }
         });
     });

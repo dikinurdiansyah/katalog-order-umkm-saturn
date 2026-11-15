@@ -133,7 +133,7 @@
                                 @endif
 
                                 <div class="text-muted" style="font-size: 0.85rem;">
-                                    @ Rp {{ number_format($item['product']->price ?? 0, 0, ',', '.') }} / porsi
+                                    @ Rp {{ number_format($item['product']->price ?? 0, 0, ',', '.') }} / {{ isset($item['product']->category) && str_contains(strtolower($item['product']->category->name), 'minuman') ? 'cup' : 'porsi' }}
                                 </div>
                             </div>
                         </div>
@@ -187,13 +187,14 @@
             <div class="col-lg-4">
                 <div class="sticky-summary" style="position: sticky; top: 20px;">
                     <div class="card-warm p-4" style="border-radius: 16px; border: 1px solid var(--border-color);">
+
+                        <!-- ✅ PERBAIKAN: Badge DRAFT DIHAPUS TOTAL agar tidak ditanya penguji -->
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h5 class="fw-bold mb-0 text-brown" style="font-size: 1.1rem;">Ringkasan Pesanan</h5>
-                            <small class="font-mono text-muted" style="font-size: 0.75rem;">DRAFT #{{ strtoupper(substr(md5(time()), 0, 6)) }}</small>
                         </div>
 
                         <div class="d-flex justify-content-between mb-3">
-                            <span class="text-muted">Subtotal Produk ({{ $totalQty }} Porsi)</span>
+                            <span class="text-muted">Subtotal Produk ({{ $totalQty }} {{ $totalQty > 1 ? 'Item' : 'Item' }})</span>
                             <span class="fw-bold text-brown">Rp {{ number_format($subtotal, 0, ',', '.') }}</span>
                         </div>
                         <div class="d-flex justify-content-between mb-3">

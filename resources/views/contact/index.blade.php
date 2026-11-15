@@ -21,18 +21,29 @@
     $data = $settings ? (is_array($settings->value) ? $settings->value : json_decode($settings->value, true)) : [];
 @endphp
 
-<!-- ✅ WRAPPER RESPONSIF: Container dengan max-width agar rapi di tengah Desktop, tapi full di HP -->
+<!-- ✅ WRAPPER RESPONSIF -->
 <div class="container py-4 px-3 px-md-4">
     <div class="mx-auto" style="max-width: 800px;">
 
-        <!-- Outlet Banner -->
-        <div class="card-warm mb-4" style="background: linear-gradient(135deg, #ebe0d3 0%, #ddd0c0 100%); aspect-ratio: 358/140; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; border-radius: 16px;">
-            <div style="position: absolute; inset: 0; border: 2px dashed var(--border-color); border-radius: 16px; margin: 8px;"></div>
-            <div class="text-center px-3">
-                <div class="font-mono fw-bold text-brown" style="font-size: 0.85rem; letter-spacing: 1px;">
+        <!-- ✅ HERO BANNER FOTO TOKO ASLI -->
+        <div class="card-warm mb-4" style="position: relative; border-radius: 16px; overflow: hidden; height: 220px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+            <!-- GANTI 'foto-toko.jpg' dengan nama file foto lu kalau beda -->
+            <img src="{{ asset('images/foto-toko.jpg') }}"
+                 alt="Outlet Dapur Th Sant"
+                 style="width: 100%; height: 100%; object-fit: cover; display: block;"
+                 onerror="this.src='https://images.unsplash.com/photo-1556910103-1c02745aae4d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80'">
+
+            <!-- Overlay Gelap agar teks tetap terbaca jelas di atas foto apapun -->
+            <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.15) 60%, transparent 100%);"></div>
+
+            <!-- Teks di atas gambar -->
+            <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 20px; color: white; text-align: center;">
+                <h4 class="fw-bold mb-1" style="font-size: 1.3rem; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.6);">
                     {{ $data['business_name'] ?? 'DAPUR TH SANT' }}
-                </div>
-                <small class="text-muted mt-1 d-block" style="font-size: 0.75rem;">{{ $data['tagline'] ?? 'Dimsum Kukus Segar & Kuliner Tradisional UMKM' }}</small>
+                </h4>
+                <small style="font-size: 0.85rem; opacity: 0.95; text-shadow: 0 1px 2px rgba(0,0,0,0.6);">
+                    <i class="bi bi-geo-alt-fill"></i> {{ $data['address'] ?? 'Jl. Cikareo Legok, Alamendah, Bandung' }}
+                </small>
             </div>
         </div>
 
@@ -111,7 +122,7 @@
                     </a>
                 </div>
                 <div class="col-6">
-                    <a href="https://maps.google.com/?q={{ $data['latitude'] ?? '-6.879' }},{{ $data['longitude'] ?? '107.605' }}" target="_blank" class="btn-brown-outline w-100 d-flex align-items-center justify-content-center gap-2" style="padding: 12px; border-radius: 10px; text-decoration: none;">
+                    <a href="https://maps.google.com/?q={{ $data['latitude'] ?? '-7.122983' }},{{ $data['longitude'] ?? '107.433136' }}" target="_blank" class="btn-brown-outline w-100 d-flex align-items-center justify-content-center gap-2" style="padding: 12px; border-radius: 10px; text-decoration: none;">
                         <i class="bi bi-geo-alt-fill"></i>
                         <span style="font-size: 0.8rem;">ARAH</span>
                     </a>
@@ -130,7 +141,7 @@
 
             <div class="mb-3">
                 <p class="mb-1 text-brown" style="font-size: 0.9rem; line-height: 1.5;">
-                    {{ $data['address'] ?? 'Jl. Ciumbuleuit No. 88, Hegarmanah, Cidadap, Kota Bandung, Jawa Barat 40141' }}
+                    {{ $data['address'] ?? 'Jl. Cikareo Legok, Desa Alamendah, Kec. Rancabali, Kab. Bandung, Jawa Barat 40973' }}
                 </p>
                 @if(!empty($data['landmark']))
                     <small class="text-muted" style="font-size: 0.8rem;">
@@ -139,29 +150,22 @@
                 @endif
             </div>
 
-            <!-- Map dengan Koordinat Dinamis -->
-            <div class="card-warm mb-3" style="background: var(--cream-light); aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; position: relative; border: 2px dashed var(--border-color); overflow: hidden; border-radius: 12px;">
-                @if(!empty($data['latitude']) && !empty($data['longitude']))
-                    <iframe
-                        width="100%"
-                        height="100%"
-                        frameborder="0"
-                        scrolling="no"
-                        marginheight="0"
-                        marginwidth="0"
-                        src="https://maps.google.com/maps?q={{ $data['latitude'] }},{{ $data['longitude'] }}&z=15&output=embed"
-                        style="border: none;">
-                    </iframe>
-                @else
-                    <div class="text-center p-3">
-                        <div class="font-mono fw-bold text-brown" style="font-size: 0.85rem;">
-                            [ PETA LOKASI OUTLET CIUMBULEUIT ]
-                        </div>
-                        <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
-                            LAT: {{ $data['latitude'] ?? '-' }}, LONG: {{ $data['longitude'] ?? '-' }}
-                        </small>
-                    </div>
-                @endif
+            <!-- ✅ MAP YANG SELALU MUNCUL -->
+            <div class="card-warm mb-3" style="aspect-ratio: 16/9; overflow: hidden; border-radius: 12px; border: none;">
+                @php
+                    $lat = $data['latitude'] ?? '-7.122983';
+                    $lng = $data['longitude'] ?? '107.433136';
+                @endphp
+                <iframe
+                    width="100%"
+                    height="100%"
+                    frameborder="0"
+                    scrolling="no"
+                    marginheight="0"
+                    marginwidth="0"
+                    src="https://maps.google.com/maps?q={{ $lat }},{{ $lng }}&z=15&output=embed"
+                    style="border: none;">
+                </iframe>
             </div>
 
             <button class="btn-brown-outline w-100 d-flex align-items-center justify-content-center gap-2" style="padding: 12px; border-radius: 10px; text-decoration: none;" onclick="navigator.clipboard.writeText('{{ $data['address'] ?? '' }}'); alert('Alamat disalin!')">
@@ -218,7 +222,6 @@
                 <span class="font-mono badge-status" style="font-size: 0.65rem;">KANAL RESMI</span>
             </div>
 
-            <!-- Instagram -->
             @if(!empty($data['instagram']))
             <div class="d-flex align-items-center gap-3 py-2" style="border-bottom: 1px solid var(--border-color);">
                 <div style="width: 40px; height: 40px; background: #E1306C; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0;">
@@ -232,7 +235,6 @@
             </div>
             @endif
 
-            <!-- TikTok -->
             @if(!empty($data['tiktok']))
             <div class="d-flex align-items-center gap-3 py-2" style="border-bottom: 1px solid var(--border-color);">
                 <div style="width: 40px; height: 40px; background: #000; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0;">
@@ -246,7 +248,6 @@
             </div>
             @endif
 
-            <!-- Link Aggregator (Linktree) -->
             @if(!empty($data['link_aggregator']))
             <div class="d-flex align-items-center gap-3 py-2">
                 <div style="width: 40px; height: 40px; background: var(--brown-dark); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0;">
@@ -324,7 +325,6 @@
         const message = `Halo {{ $data['business_name'] ?? 'Dapur Th Sant' }}, saya ${name}. Kebutuhan: ${need}. Detail: ${detail}`;
         const phone = '{{ preg_replace('/[^0-9]/', '', $data['whatsapp'] ?? '081234567890') }}';
 
-        // Pastikan format nomor 62
         let finalPhone = phone;
         if (finalPhone.startsWith('0')) {
             finalPhone = '62' + finalPhone.substring(1);

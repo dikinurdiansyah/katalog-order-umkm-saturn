@@ -16,17 +16,10 @@
 
 @section('content')
 @php
-    // ✅ AMBIL KOORDINAT TOKO DARI DATABASE AGAR PETA AKURAT
+    // ✅ AMBIL KOORDINAT TOKO DARI DATABASE (Disimpan untuk kebutuhan lain jika ada)
     $settings = \App\Models\Setting::firstWhere('key', 'outlet_info');
     $data = $settings ? (is_array($settings->value) ? $settings->value : json_decode($settings->value, true)) : [];
-    $tokoLat = $data['latitude'] ?? -7.1229831;   // Default Alamendah (sesuaikan DB)
-    $tokoLng = $data['longitude'] ?? 107.4331362; // Default Alamendah (sesuaikan DB)
 @endphp
-
-<div class="px-3 py-2 d-flex justify-content-between align-items-center" style="background: var(--cream); border-bottom: 1px solid var(--border-color);">
-    <small class="font-mono" style="font-size: 0.65rem; color: var(--text-muted);">WF-SPEC: P4-CHECKOUT-PROMO</small>
-    <small class="font-mono" style="font-size: 0.65rem; color: var(--text-muted);">REV 1.0.0 // STABLE</small>
-</div>
 
 <form method="POST" action="{{ route('orders.store') }}" id="checkoutForm">
     @csrf
@@ -38,7 +31,6 @@
                 <div class="card-warm p-3 p-md-4 mb-4" style="border-radius: 16px;">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="fw-bold mb-0 text-brown" style="font-size: 1rem;">1. INFORMASI PEMESAN</h5>
-                        <span class="font-mono badge-status" style="font-size: 0.65rem;">REQ_STAGE_1</span>
                     </div>
                     <div class="row g-3">
                         <div class="col-md-6">
@@ -71,7 +63,7 @@
                         </div>
                     </div>
 
-                    <!-- ✅ KOLOM 1: KHUSUS DELIVERY (DINAMIS KECAMATAN & DESA + PETA) -->
+                    <!-- ✅ KOLOM 1: KHUSUS DELIVERY (DINAMIS KECAMATAN & DESA) -->
                     <div class="mt-3" id="delivery-section">
                         <label class="section-label mb-2">KECAMATAN</label>
                         <div class="card-warm p-3 mb-2">
@@ -110,13 +102,6 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- ✅ TAMBAHAN: PETA LOKASI TOKO (LEAFLET) -->
-                        <div class="mt-3">
-                            <label class="section-label mb-2">LOKASI DAPUR TH SANT (Titik Pengiriman)</label>
-                            <div id="mapCheckout" style="height: 250px; border-radius: 12px; border: 1px solid var(--border-color); z-index: 1;"></div>
-                            <small class="text-muted mt-1 d-block" style="font-size: 0.75rem;"><i class="bi bi-info-circle"></i> Pesanan akan dikirim dari lokasi ini ke alamat Anda.</small>
-                        </div>
                     </div>
 
                     <!-- KOLOM 2: KHUSUS PICKUP -->
@@ -146,7 +131,7 @@
                             <div style="width: 60px; height: 60px; flex-shrink: 0; background: var(--cream-dark); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
                                 @php $img = $item['product']->image_url ?? null; @endphp
                                 @if($img) <img src="{{ asset($img) }}" class="w-100 h-100" style="object-fit: cover; border-radius: 8px;">
-                                @else <span class="font-mono" style="font-size: 0.7rem; color: var(--text-muted);">1:1</span> @endif
+                                @else <span class="font-mono" style="font-size: 0.7rem; color: var(--text-muted);">IMG</span> @endif
                             </div>
                             <div class="flex-grow-1">
                                 <div class="fw-bold text-brown" style="font-size: 0.9rem;">{{ $item['product']->name ?? 'Produk' }}</div>
@@ -164,7 +149,6 @@
                 <div class="card-warm p-3 p-md-4 mb-4" style="border-radius: 16px;">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="fw-bold mb-0 text-brown" style="font-size: 1rem;">3. VOUCHER & PROMO</h5>
-                        <span class="font-mono badge-status" style="font-size: 0.65rem;">PROMO_DISC</span>
                     </div>
                     <div class="d-flex gap-2 mb-2">
                         <input type="text" id="promoInput" name="promo_code" class="form-control-warm flex-grow-1 font-mono" placeholder="CONTOH: DISKON10" value="{{ old('promo_code') }}" style="text-transform: uppercase;">
@@ -185,7 +169,6 @@
                 <div class="card-warm p-3 p-md-4 mb-4" style="border-radius: 16px;">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="fw-bold mb-0 text-brown" style="font-size: 1rem;">4. METODE PEMBAYARAN</h5>
-                        <span class="font-mono badge-status" style="font-size: 0.65rem;">PAY_SELECT</span>
                     </div>
 
                     <label class="card-warm p-3 mb-2 d-flex align-items-center gap-3" style="cursor: pointer; border: 2px solid var(--brown-dark); background: var(--cream-dark); border-radius: 12px;">
@@ -254,10 +237,6 @@
 </form>
 
 @push('scripts')
-<!-- Pastikan Leaflet CSS & JS sudah ada di layouts.app, jika belum, uncomment baris di bawah ini -->
-<!-- <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" /> -->
-<!-- <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script> -->
-
 <script>
     const baseSubtotal = {{ $subtotal ?? 0 }};
     const packagingCost = 2000;
@@ -444,25 +423,9 @@
         updateTotalDisplay();
     }
 
-    // ✅ INISIALISASI PETA LEAFLET DI CHECKOUT
+    // ✅ PASTIKAN TOGGLE BERJALAN SAAT HALAMAN DIMUAT
     document.addEventListener('DOMContentLoaded', function() {
         toggleFulfillment();
-
-        // Cek apakah elemen map ada (hanya jalankan jika di section delivery)
-        if (document.getElementById('mapCheckout')) {
-            const tokoLat = {{ $tokoLat }};
-            const tokoLng = {{ $tokoLng }};
-
-            const map = L.map('mapCheckout').setView([tokoLat, tokoLng], 14);
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap'
-            }).addTo(map);
-
-            L.marker([tokoLat, tokoLng]).addTo(map)
-                .bindPopup('<b>🏠 Dapur Th Sant</b><br>{{ $data["address"] ?? "Lokasi Toko" }}')
-                .openPopup();
-        }
     });
 </script>
 @endpush
