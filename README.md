@@ -1,4 +1,4 @@
-# 🍽️ Dapur Th Sant - Sistem Informasi Katalog & Pemesanan Makanan UMKM
+# 🍽️ Dapur Th Sant - Sistem  Katalog & order online UMKM
 
 <div align="center">
 
