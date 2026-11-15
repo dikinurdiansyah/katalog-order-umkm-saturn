@@ -644,10 +644,10 @@ Kami sangat menghargai kontribusi dari komunitas! Berikut cara berkontribusi:
 
 | Nama | Role | NISN | Kontribusi |
 |------|------|------|------------|
-| **Diki Nurdiansyah** | Backend Developer & DB Admin | [NISN] | Arsitektur database, API controller, logika bisnis, deployment |
-| **[Nama Partner]** | Frontend Developer & UI/UX | [NISN] | Desain antarmuka, integrasi view, user manual, testing |
+| **Fauzan Aufaa** | Backend Developer & DB Admin | [ 0084455060] | Arsitektur database, API controller, logika bisnis, deployment |
+| **Diki Nurdiansyah** | Frontend Developer & UI/UX | [ 0081984479] | Desain antarmuka, integrasi view, user manual, testing |
 
-**Pembimbing UKK:** [Nama Guru Pembimbing], S.Kom.
+**Pembimbing UKK:** Nurdiansyah Permana, S.T.
 
 **SMK Budi Bakti Ciwidey**  
 **Tahun Ajaran 2026/2027**
