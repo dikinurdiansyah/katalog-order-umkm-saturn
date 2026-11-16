@@ -53,7 +53,9 @@
             <div class="d-flex gap-2 mb-3 flex-wrap">
                 <span class="badge-stock" style="background: var(--brown-dark); color: white; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.8rem;">BEST SELLER</span>
                 <span class="badge-stock" style="background: white; color: var(--brown-dark); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.8rem;">100% HALAL</span>
-                @if($availableStock > 10)
+                @if(!$product->is_available)
+                    <span class="badge-stock" style="background: #fde8e8; color: #c53030; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.8rem;">HABIS</span>
+                @elseif($availableStock > 10)
                     <span class="badge-stock" style="background: var(--green-bg); color: var(--green-stock); padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.8rem;">READY STOCK</span>
                 @elseif($availableStock > 0)
                     <span class="badge-stock" style="background: var(--warning-bg); color: var(--orange-fav); padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.8rem;">SISA {{ $availableStock }}</span>
@@ -183,7 +185,7 @@
 
             <!-- ✅ DESKTOP ACTION BAR -->
             <div class="d-none d-lg-block">
-                @if($availableStock > 0)
+                @if($availableStock > 0 && $product->is_available)
                 <div class="card-warm p-3" style="border-radius: 12px;">
                     <div class="d-flex gap-3 align-items-center">
                         <div class="qty-control">
@@ -214,7 +216,7 @@
 </div>
 
 <!-- ✅ MOBILE ONLY: Bottom Action Bar Fixed -->
-@if($availableStock > 0)
+@if($availableStock > 0 && $product->is_available)
 <div class="d-lg-none position-fixed bottom-0 start-0 end-0" style="z-index: 999; background: var(--cream-light); border-top: 1px solid var(--border-color); padding: 12px 16px; padding-bottom: calc(12px + env(safe-area-inset-bottom));">
     <div class="container-fluid px-0">
         <div class="d-flex gap-2 align-items-center">

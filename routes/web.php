@@ -139,6 +139,7 @@ Route::middleware(['auth', 'role:ADMIN'])->prefix('admin')->name('admin.')->grou
     Route::get('/products', [AdminController::class, 'products'])->name('products');
     Route::post('/products', [AdminController::class, 'storeProduct'])->name('products.store');
     Route::put('/products/{product}', [AdminController::class, 'updateProduct'])->name('products.update');
+    Route::post('/products/{product}/toggle-availability', [AdminController::class, 'toggleProductAvailability'])->name('products.toggleAvailability');
     Route::delete('/products/{product}', [AdminController::class, 'destroyProduct'])->name('products.destroy');
 
     // Promos

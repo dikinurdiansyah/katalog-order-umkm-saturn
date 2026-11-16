@@ -165,23 +165,24 @@
                     @endif
                 </div>
 
-                <!-- ✅ 4. Metode Pembayaran (HANYA QRIS) -->
+                <!-- 4. Metode Pembayaran -->
                 <div class="card-warm p-3 p-md-4 mb-4" style="border-radius: 16px;">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="fw-bold mb-0 text-brown" style="font-size: 1rem;">4. METODE PEMBAYARAN</h5>
                     </div>
-
-                    <label class="card-warm p-3 mb-2 d-flex align-items-center gap-3" style="cursor: pointer; border: 2px solid var(--brown-dark); background: var(--cream-dark); border-radius: 12px;">
-                        <input type="radio" name="payment_method" value="QRIS" checked class="d-none">
-                        <div class="flex-grow-1">
-                            <div class="fw-bold text-brown">Pembayaran via QRIS</div>
-                            <small class="text-muted" style="font-size: 0.8rem;">Arahkan kamera HP untuk langsung membuka aplikasi e-wallet / mobile banking</small>
-                        </div>
-                        <i class="bi bi-qr-code-scan text-brown" style="font-size: 1.5rem;"></i>
-                    </label>
-
+                    <div class="row g-2">
+                        @foreach(['Tunai' => 'Pembayaran tunai', 'QRIS' => 'Pembayaran via QRIS', 'Transfer' => 'Transfer bank'] as $value => $label)
+                            <div class="col-md-4">
+                                <label class="card-warm p-3 d-flex align-items-center gap-2 h-100" style="cursor: pointer; border: 1px solid var(--border-color); border-radius: 12px;">
+                                    <input type="radio" name="metode_pembayaran" value="{{ $value }}" required {{ old('metode_pembayaran', 'QRIS') === $value ? 'checked' : '' }}>
+                                    <span class="fw-bold text-brown">{{ $label }}</span>
+                                </label>
+                            </div>
+                        @endforeach
+                    </div>
+                    @error('metode_pembayaran') <div class="text-danger mt-2">{{ $message }}</div> @enderror
                     <small class="text-muted mt-2 d-block" style="font-size: 0.75rem;">
-                        <i class="bi bi-info-circle"></i> Setelah klik "Konfirmasi Pesanan", Anda akan diarahkan ke halaman untuk men-scan QRIS dan mengupload bukti pembayaran.
+                        <i class="bi bi-info-circle"></i> Pilih metode pembayaran yang akan digunakan.
                     </small>
                 </div>
             </div>

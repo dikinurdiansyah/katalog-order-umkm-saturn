@@ -166,7 +166,7 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <div class="fw-bold text-brown" style="font-size: 0.9rem; letter-spacing: 1px;">TOTAL PEMBAYARAN</div>
-                        <small class="text-muted" style="font-size: 0.75rem;">Metode: {{ str_replace('_', ' ', $order->payment_method) }}</small>
+                        <small class="text-muted" style="font-size: 0.75rem;">Metode: {{ $order->metode_pembayaran }}</small>
                     </div>
                     <div class="fw-bold text-brown" style="font-size: 1.4rem;">
                         Rp {{ number_format($order->total_amount, 0, ',', '.') }}
@@ -207,8 +207,8 @@
             @endif
         </div>
 
-        <!-- ✅ PAYMENT & UPLOAD SECTION (KHUSUS QRIS) -->
-        @if($order->payment_method === 'QRIS')
+        <!-- Instruksi pembayaran non-tunai -->
+        @if(in_array($order->metode_pembayaran, ['QRIS', 'Transfer']))
             <div class="card-warm p-4 mb-4" style="background: #fff8e1; border-left: 4px solid #f59e0b; border-radius: 16px;">
                 <h5 class="fw-bold mb-3 text-brown d-flex align-items-center gap-2" style="font-size: 1rem;">
                     <i class="bi bi-bank"></i> Instruksi & Upload Pembayaran
@@ -240,7 +240,7 @@
                         </div>
                     </div>
                 @else
-                    {{-- ✅ 3. TAMPILKAN GAMBAR QRIS (DENGAN FALLBACK AGAR TIDAK RUSAK) --}}
+                    @if($order->metode_pembayaran === 'QRIS')
                     <div class="card-warm p-3 mb-3 text-center" style="background: white; border-radius: 12px; border: 2px dashed var(--brown-dark);">
                         <p class="fw-bold mb-2" style="color: var(--brown-dark); font-size: 0.95rem;">
                             <i class="bi bi-qr-code-scan"></i> Arahkan Kamera HP untuk Scan QRIS
@@ -277,6 +277,11 @@
                             <i class="bi bi-camera"></i> Scan langsung membuka aplikasi e-wallet / m-banking
                         </small>
                     </div>
+                    @else
+                    <div class="card-warm p-3 mb-3" style="background: white; border-radius: 12px;">
+                        <p class="mb-0">Silakan hubungi admin untuk mendapatkan detail rekening tujuan, lalu unggah bukti transfer setelah pembayaran.</p>
+                    </div>
+                    @endif
 
                     {{-- FORM UPLOAD BUKTI --}}
                     <form method="POST" action="{{ route('orders.uploadBukti', $order->id) }}" enctype="multipart/form-data">

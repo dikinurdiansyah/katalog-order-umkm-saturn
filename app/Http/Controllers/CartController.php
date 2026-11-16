@@ -41,7 +41,7 @@ class CartController extends Controller
 
         $product = Product::findOrFail($validated['product_id']);
 
-        if (!$product->is_active || $product->stock < $validated['quantity']) {
+        if (!$product->is_active || !$product->is_available || $product->stock < $validated['quantity']) {
             return back()->with('error', 'Produk tidak tersedia atau stok tidak mencukupi.');
         }
 
@@ -67,7 +67,7 @@ class CartController extends Controller
 
             $newQty = $cart[$product->id]['quantity'] + $validated['quantity'];
             if ($product->stock < $newQty) {
-                return back()->with('error', 'Stok tidak mencukupi.');
+                return back()->with('error', 'Produk tidak tersedia atau stok tidak mencukupi.');
             }
 
             $cart[$product->id]['quantity'] = $newQty;
@@ -103,7 +103,7 @@ class CartController extends Controller
 
         if (isset($cart[$id])) {
             $product = Product::find($id);
-            if ($product && $product->stock >= $validated['quantity']) {
+            if ($product && $product->is_active && $product->is_available && $product->stock >= $validated['quantity']) {
                 $cart[$id]['quantity'] = $validated['quantity'];
 
                 // ✅ Pastikan notes tetap ada

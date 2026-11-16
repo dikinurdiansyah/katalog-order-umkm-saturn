@@ -4,6 +4,38 @@
 @section('page-title', 'Daftar Semua Order')
 
 @section('content')
+<div class="table-custom p-4 mb-4">
+    <form method="GET" action="{{ route('admin.orders') }}" class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label for="metode_pembayaran" class="form-label">Metode Pembayaran</label>
+            <select id="metode_pembayaran" name="metode_pembayaran" class="form-select">
+                <option value="">Semua metode</option>
+                @foreach(['Tunai', 'QRIS', 'Transfer'] as $metode)
+                    <option value="{{ $metode }}" {{ request('metode_pembayaran') === $metode ? 'selected' : '' }}>{{ $metode }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label for="status" class="form-label">Status Pesanan</label>
+            <select id="status" name="status" class="form-select">
+                <option value="">Semua status</option>
+                @foreach(['MENUNGGU_KONFIRMASI', 'DIPROSES', 'DIKIRIM', 'SELESAI', 'DIBATALKAN'] as $status)
+                    <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ str_replace('_', ' ', $status) }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-md-4 d-flex gap-2">
+            <button type="submit" class="btn-admin"><i class="bi bi-funnel"></i> Filter</button>
+            <a href="{{ route('admin.orders') }}" class="btn-admin-outline">Reset</a>
+        </div>
+    </form>
+</div>
+
+<div class="table-custom p-4 mb-4">
+    <div class="text-muted">Total nominal dari {{ $orders->count() }} pesanan terfilter</div>
+    <div class="fs-4 fw-bold text-brown">Rp {{ number_format($totalTerfilter, 0, ',', '.') }}</div>
+</div>
+
 <div class="table-custom p-4">
     <div class="table-responsive">
         <table class="table table-hover align-middle">
@@ -29,7 +61,7 @@
                     </td>
                     <td>
                         <span class="badge bg-light text-dark border">
-                            {{ $order->fulfillment_method === 'PICKUP' ? 'Ambil di Tempat' : 'Delivery' }}
+                            {{ $order->metode_pembayaran }}
                         </span>
                     </td>
                     <td class="fw-bold">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</td>

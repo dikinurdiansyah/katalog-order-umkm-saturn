@@ -114,9 +114,20 @@
                         @else
                             <span class="badge-admin badge-cancelled">Nonaktif</span>
                         @endif
+                        <div class="mt-1">
+                            <span class="badge-admin {{ $product->is_available ? 'badge-completed' : 'badge-cancelled' }}">
+                                {{ $product->is_available ? 'Tersedia' : 'Habis' }}
+                            </span>
+                        </div>
                     </td>
                     <td class="text-end">
                         <div class="d-flex gap-2 justify-content-end">
+                            <form method="POST" action="{{ route('admin.products.toggleAvailability', $product) }}">
+                                @csrf
+                                <button type="submit" class="btn-admin-outline btn-sm" style="padding: 6px 12px; font-size: 0.8rem;">
+                                    {{ $product->is_available ? 'Tandai Habis' : 'Tandai Tersedia' }}
+                                </button>
+                            </form>
                             <button class="btn-admin-outline btn-sm" style="padding: 6px 12px; font-size: 0.8rem;"
                                     data-bs-toggle="modal"
                                     data-bs-target="#modalEditProduct{{ $product->id }}">

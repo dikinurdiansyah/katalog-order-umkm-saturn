@@ -15,13 +15,27 @@ class OrderController extends Controller
     // ==========================================
     // ADMIN: Daftar Semua Order
     // ==========================================
-    public function index()
+    public function index(Request $request)
     {
-        $orders = Order::with(['promo', 'orderItems.product', 'payment'])
+        $validated = $request->validate([
+            'metode_pembayaran' => 'nullable|in:Tunai,QRIS,Transfer',
+            'status' => 'nullable|in:MENUNGGU_KONFIRMASI,DIPROSES,DIKIRIM,SELESAI,DIBATALKAN',
+        ]);
+
+        $query = Order::with(['promo', 'orderItems.product', 'payment'])
+            ->when($validated['metode_pembayaran'] ?? null, function ($query, $metodePembayaran) {
+                $query->where('metode_pembayaran', $metodePembayaran);
+            })
+            ->when($validated['status'] ?? null, function ($query, $status) {
+                $query->where('status', $status);
+            });
+
+        $totalTerfilter = (clone $query)->sum('total_amount');
+        $orders = $query
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return view('admin.orders.index', compact('orders'));
+        return view('admin.orders.index', compact('orders', 'totalTerfilter'));
     }
 
     // ==========================================
@@ -37,6 +51,21 @@ class OrderController extends Controller
         }
 
         $products = Product::whereIn('id', array_keys($cart))->get();
+        if ($products->count() !== count($cart)) {
+            return redirect()->route('cart.index')
+                ->with('error', 'Ada produk di keranjang yang sudah tidak tersedia. Periksa kembali keranjang Anda.');
+        }
+
+        $unavailableProduct = $products->first(function ($product) use ($cart) {
+            return !$product->is_available
+                || !$product->is_active
+                || $product->stock < ($cart[$product->id]['quantity'] ?? 0);
+        });
+        if ($unavailableProduct) {
+            return redirect()->route('cart.index')
+                ->with('error', "Produk {$unavailableProduct->name} tidak tersedia atau stoknya tidak mencukupi.");
+        }
+
         $promos = Promo::where('is_active', true)
             ->where(function($q) {
                 $q->whereNull('valid_until')
@@ -122,7 +151,6 @@ class OrderController extends Controller
             return back()->with('error', 'Keranjang kosong.');
         }
 
-        // ✅ REVISI: HANYA QRIS, COD SUDAH DIHAPUS TOTAL
         $validated = $request->validate([
             'customer_name' => 'required|string|max:255',
             'customer_phone' => 'required|string|max:20',
@@ -131,7 +159,7 @@ class OrderController extends Controller
             'desa' => 'required_if:fulfillment_method,DELIVERY|string',
             'delivery_address' => 'required_if:fulfillment_method,DELIVERY|string',
             'pickup_note' => 'required_if:fulfillment_method,PICKUP|string',
-            'payment_method' => 'required|in:QRIS', // ✅ Hanya QRIS
+            'metode_pembayaran' => 'required|in:Tunai,QRIS,Transfer',
             'promo_code' => 'nullable|string',
         ]);
 
@@ -175,8 +203,9 @@ class OrderController extends Controller
                 'customer_phone' => $validated['customer_phone'],
                 'shipping_address' => $finalAddress,
                 'fulfillment_method' => $validated['fulfillment_method'],
-                'payment_method' => 'QRIS', // ✅ Force QRIS
-                'payment_provider' => 'QRIS', // ✅ Force QRIS
+                'metode_pembayaran' => $validated['metode_pembayaran'],
+                'payment_method' => $validated['metode_pembayaran'] === 'Tunai' ? 'COD' : 'TRANSFER_BANK',
+                'payment_provider' => $validated['metode_pembayaran'],
                 'promo_id' => $promo?->id,
                 'subtotal_amount' => 0,
                 'discount_amount' => 0,
@@ -188,12 +217,12 @@ class OrderController extends Controller
             foreach ($cart as $productId => $item) {
                 $product = Product::findOrFail($productId);
 
-                if ($product->stock < $item['quantity']) {
-                    throw new \Exception("Stok {$product->name} tidak mencukupi. Tersedia: {$product->stock}");
+                if (!$product->is_active || !$product->is_available) {
+                    throw new \Exception("Produk {$product->name} sedang habis dan tidak dapat dipesan.");
                 }
 
-                if (!$product->is_active) {
-                    throw new \Exception("Produk {$product->name} tidak aktif.");
+                if ($product->stock < $item['quantity']) {
+                    throw new \Exception("Stok {$product->name} tidak mencukupi. Tersedia: {$product->stock}");
                 }
 
                 $itemSubtotal = $product->price * $item['quantity'];

@@ -17,6 +17,7 @@ class Order extends Model
         'subtotal_amount',
         'discount_amount',
         'total_amount',
+        'metode_pembayaran',
         'payment_method',
         'payment_provider',
         'status',

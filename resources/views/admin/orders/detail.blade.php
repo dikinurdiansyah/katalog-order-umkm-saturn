@@ -120,7 +120,7 @@
         <div class="col-md-4 text-end">
             <div class="p-3 rounded" style="background: rgba(255,255,255,0.1);">
                 <div class="font-mono" style="font-size: 0.7rem; opacity: 0.8; margin-bottom: 4px;">METODE PEMBAYARAN</div>
-                <div class="fw-bold mb-2">{{ str_replace('_', ' ', $order->payment_method) }}</div>
+                <div class="fw-bold mb-2">{{ $order->metode_pembayaran }}</div>
                 <span class="badge" style="background: {{ $order->payment?->payment_status === 'VERIFIED' ? 'var(--green-stock)' : '#e76f51' }}; color: white; font-size: 0.7rem;">
                     {{ $order->payment?->payment_status ?? 'BELUM LUNAS' }}
                 </span>

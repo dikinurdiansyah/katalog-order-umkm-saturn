@@ -19,6 +19,7 @@ class Product extends Model
         'image_3',
         'image_4',
         'is_active',
+        'is_available',
     ];
 
     protected function casts(): array
@@ -27,6 +28,7 @@ class Product extends Model
             'price' => 'decimal:2',
             'stock' => 'integer',
             'is_active' => 'boolean',
+            'is_available' => 'boolean',
         ];
     }
 

@@ -457,7 +457,9 @@
                             <span class="product-badge-premium {{ $badgeClass }}">{{ $badgeText }}</span>
                         @endif
 
-                        @if($product->stock <= 10 && $product->stock > 0)
+                        @if(!$product->is_available)
+                            <span class="product-stock-badge habis"><i class="bi bi-x-circle-fill"></i> HABIS</span>
+                        @elseif($product->stock <= 10 && $product->stock > 0)
                             <span class="product-stock-badge low"><i class="bi bi-exclamation-triangle-fill"></i> Sisa {{ $product->stock }}</span>
                         @elseif($product->stock == 0)
                             <span class="product-stock-badge habis"><i class="bi bi-x-circle-fill"></i> Habis Terjual</span>
@@ -479,7 +481,7 @@
                             <div>
                                 <div class="product-price-premium">Rp{{ number_format($product->price, 0, ',', '.') }}</div>
                             </div>
-                            @if($product->stock > 0)
+                            @if($product->is_available && $product->stock > 0)
                                 <form action="{{ route('cart.add') }}" method="POST" class="d-inline" onclick="event.stopPropagation();">
                                     @csrf
                                     <input type="hidden" name="product_id" value="{{ $product->id }}">

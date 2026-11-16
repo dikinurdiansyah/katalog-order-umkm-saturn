@@ -19,7 +19,10 @@ class CatalogController extends Controller
 
         // ✅ AMAN: Menggunakan where() agar tidak error jika scope active()/inStock() belum dibuat di Model
         $query = Product::where('is_active', true)
-                        ->where('stock', '>', 0)
+                        ->where(function ($query) {
+                            $query->where('stock', '>', 0)
+                                ->orWhere('is_available', false);
+                        })
                         ->with('category');
 
         // ✅ PERBAIKAN: category_id → id_category (sesuai nama kolom di database)
@@ -73,6 +76,7 @@ class CatalogController extends Controller
         // Related products (produk sejenis yang masih aktif dan ada stoknya)
         $relatedProducts = Product::where('is_active', true)
             ->where('stock', '>', 0)
+            ->where('is_available', true)
             ->where('id_category', $product->id_category) // ✅ DIPERBAIKI
             ->where('id', '!=', $product->id)
             ->inRandomOrder() // Acak agar variatif

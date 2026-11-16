@@ -246,6 +246,16 @@ class AdminController extends Controller
             ->with('success', 'Produk berhasil diperbarui.');
     }
 
+    public function toggleProductAvailability(Product $product)
+    {
+        $product->update(['is_available' => !$product->is_available]);
+
+        return redirect()->route('admin.products')
+            ->with('success', $product->is_available
+                ? "Produk {$product->name} sekarang tersedia."
+                : "Produk {$product->name} ditandai habis.");
+    }
+
     public function destroyProduct(Product $product)
     {
         $hasOrderHistory = \App\Models\OrderItem::where('product_id', $product->id)->exists();
