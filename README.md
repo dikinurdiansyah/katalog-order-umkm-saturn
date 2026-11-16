@@ -266,7 +266,11 @@ Setelah menjalankan seeder, gunakan kredensial berikut untuk testing:
 
 | Role | Email | Password |
 |------|-------|----------|
+<<<<<<< HEAD
 | **Pelanggan** | pelanggan@dapurthsant.my.id | password123 |
+=======
+|
+>>>>>>> 6d4d3c0 (feat(cr-skkni3): tambah kolom dan validasi wajib metode_pembayaran)
 | **Admin** | admin@dapurthsant.my.id | password123 |
 
 ### Alur Penggunaan
@@ -683,13 +687,9 @@ SOFTWARE.
 ```
 
 ---
-
-## 📞 Kontak
-
-- **Email:** support@dapurthsant.my.id
-- **WhatsApp:** 08xx-xxxx-xxxx
-- **Website:** [https://dapurthsant.my.id](https://dapurthsant.my.id)
-- **GitHub Issues:** [Laporkan Bug](https://github.com/dikinurdiansyah/katalog-order-umkm-saturn/issues)
+| Role | Email | Password |
+|------|-------|----------|
+| **Admin** | admin@dapurthsant.my.id | password123 |
 
 ---
 
