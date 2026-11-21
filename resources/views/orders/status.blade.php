@@ -49,16 +49,24 @@
 @else
 {{-- ✅ Jika Order Ditemukan, Tampilkan Desain Lengkap --}}
 @php
-    $stageMap = [
-        'MENUNGGU_KONFIRMASI' => 1,
-        'DIPROSES' => 2,
-        'DIKIRIM' => 3,
-        'SELESAI' => 5,
-        'DIBATALKAN' => 0
-    ];
-
+    $isPickup = $order->fulfillment_method === 'PICKUP';
+    $stageMap = $isPickup
+        ? [
+            'MENUNGGU_KONFIRMASI' => 1,
+            'DIPROSES' => 2,
+            'DIKIRIM' => 3,
+            'SELESAI' => 4,
+            'DIBATALKAN' => 0
+        ]
+        : [
+            'MENUNGGU_KONFIRMASI' => 1,
+            'DIPROSES' => 2,
+            'DIKIRIM' => 4,
+            'SELESAI' => 5,
+            'DIBATALKAN' => 0
+        ];
     $currentStage = $stageMap[$order->status] ?? 1;
-    $totalStages = 5;
+    $totalStages = $isPickup ? 4 : 5;
     $isCancelled = ($order->status === 'DIBATALKAN');
 @endphp
 
@@ -109,15 +117,31 @@
 
         <!-- Status Banner Dinamis -->
         @php
-            $bannerText = match($order->status) {
-                'MENUNGGU_KONFIRMASI' => 'MENUNGGU KONFIRMASI KASIR / TAHAP 1',
-                'DIPROSES' => 'SEDANG DIKUKUS FRESH / TAHAP 2',
-                'DIKIRIM' => 'SEDANG DALAM PENGANTARAN / TAHAP 3',
-                'SELESAI' => 'PESANAN TELAH SELESAI / TAHAP 5',
-                'DIBATALKAN' => 'PESANAN DIBATALKAN',
-                default => 'MEMPROSES PESANAN...'
+            $bannerText = $isPickup
+                ? match($order->status) {
+                    'MENUNGGU_KONFIRMASI' => 'MENUNGGU KONFIRMASI KASIR / TAHAP 1',
+                    'DIPROSES' => 'PESANAN SEDANG DISIAPKAN / TAHAP 2',
+                    'DIKIRIM' => 'PESANAN SIAP DIAMBIL / TAHAP 3',
+                    'SELESAI' => 'PESANAN TELAH DIAMBIL / TAHAP 4',
+                    'DIBATALKAN' => 'PESANAN DIBATALKAN',
+                    default => 'MEMPROSES PESANAN...'
+                }
+                : match($order->status) {
+                    'MENUNGGU_KONFIRMASI' => 'MENUNGGU KONFIRMASI KASIR / TAHAP 1',
+                    'DIPROSES' => 'SEDANG DIKUKUS FRESH / TAHAP 2',
+                    'DIKIRIM' => 'SEDANG DALAM PENGANTARAN / TAHAP 4',
+                    'SELESAI' => 'PESANAN TELAH SELESAI / TAHAP 5',
+                    'DIBATALKAN' => 'PESANAN DIBATALKAN',
+                    default => 'MEMPROSES PESANAN...'
+                };
+            $showSpinner = in_array($order->status, ['MENUNGGU_KONFIRMASI', 'DIPROSES'])
+                || (!$isPickup && $order->status === 'DIKIRIM');
+
+            $pickupStatus = match($order->status) {
+                'DIPROSES' => ['title' => 'SEDANG DISIAPKAN', 'detail' => 'Pesanan sedang disiapkan di dapur.'],
+                'DIKIRIM' => ['title' => 'SIAP AMBIL', 'detail' => 'Silakan ambil pesanan di outlet.'],
+                default => ['title' => 'MENUNGGU', 'detail' => 'Pesanan menunggu konfirmasi kasir.']
             };
-            $showSpinner = in_array($order->status, ['MENUNGGU_KONFIRMASI', 'DIPROSES', 'DIKIRIM']);
         @endphp
 
         <div class="card-warm p-3 p-md-4 mb-4 d-flex align-items-center gap-3" style="border-radius: 16px; background: var(--cream); border-left: 4px solid {{ $isCancelled ? '#c53030' : 'var(--brown-dark)' }};">
@@ -143,17 +167,17 @@
                 <i class="bi bi-stopwatch" style="font-size: 2rem; color: var(--brown-dark);"></i>
             </div>
             <div class="flex-grow-1">
-                <div class="section-label mb-1">ESTIMASI TIBA</div>
+                <div class="section-label mb-1">{{ $isPickup ? 'STATUS PENGAMBILAN' : 'ESTIMASI TIBA' }}</div>
                 <div class="fw-bold text-brown font-mono" style="font-size: 1.5rem;">
-                    @if($order->fulfillment_method === 'PICKUP')
-                        SIAP AMBIL
+                    @if($isPickup)
+                        {{ $pickupStatus['title'] }}
                     @else
                         15-25 MENIT
                     @endif
                 </div>
                 <small class="text-muted d-flex align-items-center gap-1">
                     <i class="bi bi-clock"></i>
-                    {{ $order->fulfillment_method === 'PICKUP' ? 'Pesanan sedang disiapkan di dapur.' : '~20 Menit Lagi Menuju Lokasi' }}
+                    {{ $isPickup ? $pickupStatus['detail'] : '~20 Menit Lagi Menuju Lokasi' }}
                 </small>
             </div>
         </div>
@@ -169,13 +193,20 @@
                 <div style="position: absolute; left: 19px; top: 20px; bottom: 20px; width: 2px; background: var(--border-color);"></div>
 
                 @php
-                    $stages = [
-                        1 => ['title' => '1. Menunggu Konfirmasi', 'desc' => 'Pesanan masuk dan berhasil diverifikasi oleh kasir outlet.', 'time' => $order->created_at->format('H:i') . ' WIB'],
-                        2 => ['title' => '2. Diproses / Dikukus Fresh', 'desc' => 'Sedang dikukus segar di klakat bambu dapur Sukajadi.', 'time' => $order->updated_at->format('H:i') . ' WIB'],
-                        3 => ['title' => '3. Menunggu Kurir / Siap Kirim', 'desc' => 'Pengepakan thermal bag dan serah terima ke driver.', 'time' => 'Estimasi'],
-                        4 => ['title' => '4. Dalam Pengantaran ke Rumah', 'desc' => 'Kurir meluncur ke titik dropoff pemesan.', 'time' => 'Estimasi'],
-                        5 => ['title' => '5. Pesanan Selesai Diterima', 'desc' => 'Pembayaran dilunaskan dan pesanan dinikmati.', 'time' => 'Estimasi']
-                    ];
+                    $stages = $isPickup
+                        ? [
+                            1 => ['title' => '1. Menunggu Konfirmasi', 'desc' => 'Pesanan masuk dan menunggu konfirmasi kasir outlet.', 'time' => $order->created_at->format('H:i') . ' WIB'],
+                            2 => ['title' => '2. Diproses / Disiapkan', 'desc' => 'Pesanan sedang disiapkan di dapur outlet.', 'time' => $order->updated_at->format('H:i') . ' WIB'],
+                            3 => ['title' => '3. Siap Diambil', 'desc' => 'Pesanan siap diambil di outlet. Tunjukkan kode pesanan kepada kasir.', 'time' => 'Menunggu'],
+                            4 => ['title' => '4. Pesanan Selesai Diambil', 'desc' => 'Pesanan telah diambil. Selamat menikmati!', 'time' => 'Menunggu']
+                        ]
+                        : [
+                            1 => ['title' => '1. Menunggu Konfirmasi', 'desc' => 'Pesanan masuk dan berhasil diverifikasi oleh kasir outlet.', 'time' => $order->created_at->format('H:i') . ' WIB'],
+                            2 => ['title' => '2. Diproses / Dikukus Fresh', 'desc' => 'Sedang dikukus segar di klakat bambu dapur Sukajadi.', 'time' => $order->updated_at->format('H:i') . ' WIB'],
+                            3 => ['title' => '3. Menunggu Kurir / Siap Kirim', 'desc' => 'Pengepakan thermal bag dan serah terima ke driver.', 'time' => 'Estimasi'],
+                            4 => ['title' => '4. Dalam Pengantaran ke Rumah', 'desc' => 'Kurir meluncur ke titik dropoff pemesan.', 'time' => 'Estimasi'],
+                            5 => ['title' => '5. Pesanan Selesai Diterima', 'desc' => 'Pembayaran dilunaskan dan pesanan dinikmati.', 'time' => 'Estimasi']
+                        ];
                 @endphp
 
                 @foreach($stages as $index => $stage)
@@ -314,6 +345,11 @@
 
         <!-- Ringkasan Item & Pembayaran -->
         <div class="card-warm mb-4" style="border-radius: 16px; overflow: hidden;">
+            @php
+                $shippingAmount = $isPickup
+                    ? 0
+                    : max(0, $order->total_amount - $order->subtotal_amount - 2000 + $order->discount_amount);
+            @endphp
             <div class="p-3 p-md-4 d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#orderSummary" style="cursor: pointer; background: var(--cream-light);">
                 <div>
                     <h5 class="fw-bold mb-0 text-brown font-mono" style="font-size: 0.85rem; letter-spacing: 1px;">RINGKASAN ITEM & PEMBAYARAN</h5>
@@ -352,7 +388,7 @@
                     </div>
                     <div class="d-flex justify-content-between mb-3">
                         <span class="text-muted">{{ $order->fulfillment_method === 'PICKUP' ? 'Pengambilan' : 'Ongkir' }}</span>
-                        <span class="font-mono text-brown">Rp {{ $order->fulfillment_method === 'PICKUP' ? '0' : '10.000' }}</span>
+                        <span class="font-mono text-brown">Rp {{ number_format($shippingAmount, 0, ',', '.') }}</span>
                     </div>
 
                     <div class="d-flex justify-content-between pt-2" style="border-top: 2px dashed var(--border-color);">

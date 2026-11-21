@@ -47,17 +47,27 @@
 
                     <div class="mt-4">
                         <label class="section-label">METODE PEMENUHAN</label>
-                        <div class="row g-2">
+                        <div class="row g-2 fulfillment-options">
                             <div class="col-6">
                                 <input type="radio" name="fulfillment_method" id="radio-delivery" value="DELIVERY" checked class="d-none" onchange="toggleFulfillment()">
-                                <label for="radio-delivery" class="card-warm p-3 text-center w-100 mb-0" id="label-delivery" style="cursor: pointer; border: 2px solid var(--brown-dark); background: var(--brown-dark); color: white; border-radius: 12px;">
-                                    <i class="bi bi-check-lg d-block mb-1" style="font-size: 1.2rem;"></i> Delivery
+                                <label for="radio-delivery" class="card-warm p-3 w-100 h-100 mb-0" id="label-delivery" style="cursor: pointer; border: 2px solid var(--brown-dark); background: var(--brown-dark); color: white; border-radius: 12px;">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <i class="bi bi-truck" aria-hidden="true" style="font-size: 1.4rem;"></i>
+                                        <i class="bi bi-check-circle-fill fulfillment-check" aria-hidden="true"></i>
+                                    </div>
+                                    <span class="fw-bold d-block mt-2">Delivery</span>
+                                    <small class="d-block mt-1" style="opacity: 0.85;">Diantar ke alamat, ongkir sesuai lokasi</small>
                                 </label>
                             </div>
                             <div class="col-6">
                                 <input type="radio" name="fulfillment_method" id="radio-pickup" value="PICKUP" class="d-none" onchange="toggleFulfillment()">
-                                <label for="radio-pickup" class="card-warm p-3 text-center w-100 mb-0" id="label-pickup" style="cursor: pointer; border: 1px solid var(--border-color); border-radius: 12px;">
-                                    <i class="bi bi-square d-block mb-1" style="font-size: 1.2rem; color: var(--text-muted);"></i> Ambil di Tempat
+                                <label for="radio-pickup" class="card-warm p-3 w-100 h-100 mb-0" id="label-pickup" style="cursor: pointer; border: 2px solid var(--border-color); border-radius: 12px;">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <i class="bi bi-shop" aria-hidden="true" style="font-size: 1.4rem;"></i>
+                                        <i class="bi bi-circle fulfillment-check" aria-hidden="true" style="color: var(--text-muted);"></i>
+                                    </div>
+                                    <span class="fw-bold d-block mt-2">Ambil di Tempat</span>
+                                    <small class="d-block mt-1" style="opacity: 0.85;">Ambil langsung di outlet, tanpa ongkir</small>
                                 </label>
                             </div>
                         </div>
@@ -192,10 +202,20 @@
                 <div class="sticky-summary" style="position: sticky; top: 20px;">
                     <div class="card-warm p-3 p-md-4" style="border-radius: 16px; border: 1px solid var(--border-color);">
                         <h6 class="fw-bold text-brown mb-3" style="font-size: 0.9rem; letter-spacing: 1px;">RINCIAN PERHITUNGAN BIAYA</h6>
+                        <div class="card-warm p-3 mb-3" style="background: var(--cream-light); border-radius: 12px;">
+                            <div class="d-flex align-items-start gap-3">
+                                <i class="bi bi-truck text-brown mt-1" id="fulfillment-summary-icon" aria-hidden="true" style="font-size: 1.2rem;"></i>
+                                <div>
+                                    <div class="section-label mb-1">METODE PEMENUHAN</div>
+                                    <div class="fw-bold text-brown" id="fulfillment-summary-method">Delivery</div>
+                                    <small class="text-muted" id="fulfillment-summary-detail">Pilih kecamatan dan desa untuk menghitung ongkir.</small>
+                                </div>
+                            </div>
+                        </div>
                         @php
                             $subtotalVal = $subtotal ?? 0;
                             $packaging = 2000;
-                            $shipping = 10000; // Default, akan diupdate JS
+                            $shipping = 0;
                             $total = $subtotalVal + $packaging + $shipping;
                         @endphp
                         <div class="d-flex justify-content-between mb-2">
@@ -207,7 +227,7 @@
                             <span class="fw-bold text-brown">Rp {{ number_format($packaging, 0, ',', '.') }}</span>
                         </div>
                         <div class="d-flex justify-content-between mb-2" id="shipping-row">
-                            <span class="text-muted">Ongkos Kirim</span>
+                            <span class="text-muted" id="shipping-label">Ongkos Kirim</span>
                             <span class="fw-bold text-brown" id="shipping-value">Rp {{ number_format($shipping, 0, ',', '.') }}</span>
                         </div>
                         <div class="d-flex justify-content-between mb-2 d-none" id="discount-row" style="color: var(--green-stock);">
@@ -236,6 +256,23 @@
         </div>
     </div>
 </form>
+
+@push('styles')
+<style>
+    @media (max-width: 991.98px) {
+        .sticky-summary {
+            position: static !important;
+            top: auto !important;
+        }
+    }
+
+    @media (max-width: 380px) {
+        .fulfillment-options > div {
+            width: 100%;
+        }
+    }
+</style>
+@endpush
 
 @push('scripts')
 <script>
@@ -321,11 +358,27 @@
         document.getElementById('total-value').innerText = formattedTotal;
         document.getElementById('button-total').innerText = formattedTotal;
 
-        const shippingRow = document.getElementById('shipping-row');
+        const fulfillmentSummaryIcon = document.getElementById('fulfillment-summary-icon');
+        const fulfillmentSummaryMethod = document.getElementById('fulfillment-summary-method');
+        const fulfillmentSummaryDetail = document.getElementById('fulfillment-summary-detail');
+        const shippingLabel = document.getElementById('shipping-label');
         if (isPickup) {
-            shippingRow.style.display = 'none';
+            fulfillmentSummaryIcon.className = 'bi bi-shop text-brown mt-1';
+            fulfillmentSummaryMethod.innerText = 'Ambil di Tempat';
+            fulfillmentSummaryDetail.innerText = 'Ambil pesanan langsung di outlet Dapur Th Sant.';
+            shippingLabel.innerText = 'Biaya Pengambilan';
+            document.getElementById('shipping-value').innerText = 'Rp 0';
         } else {
-            shippingRow.style.display = 'flex';
+            fulfillmentSummaryIcon.className = 'bi bi-truck text-brown mt-1';
+            fulfillmentSummaryMethod.innerText = 'Delivery';
+            if (desaSelect.selectedIndex > 0) {
+                const selectedDesa = desaSelect.options[desaSelect.selectedIndex].value;
+                const selectedKecamatan = document.getElementById('kecamatan-select').value;
+                fulfillmentSummaryDetail.innerText = `Diantar ke Desa ${selectedDesa}, Kec. ${selectedKecamatan}.`;
+            } else {
+                fulfillmentSummaryDetail.innerText = 'Pilih kecamatan dan desa untuk menghitung ongkir.';
+            }
+            shippingLabel.innerText = 'Ongkos Kirim';
             document.getElementById('shipping-value').innerText = 'Rp ' + currentShipping.toLocaleString('id-ID');
         }
     }
@@ -399,6 +452,8 @@
         const pickupSection = document.getElementById('pickup-section');
         const deliveryInput = document.getElementById('delivery-input');
         const pickupInput = document.getElementById('pickup-input');
+        const kecamatanSelect = document.getElementById('kecamatan-select');
+        const desaSelect = document.getElementById('desa-select');
         const labelDelivery = document.getElementById('label-delivery');
         const labelPickup = document.getElementById('label-pickup');
 
@@ -406,20 +461,32 @@
             deliverySection.style.display = 'none';
             pickupSection.style.display = 'block';
             deliveryInput.disabled = true; deliveryInput.required = false;
+            kecamatanSelect.disabled = true; kecamatanSelect.required = false;
+            desaSelect.disabled = true; desaSelect.required = false;
             pickupInput.disabled = false; pickupInput.required = true;
             labelDelivery.style.background = 'transparent'; labelDelivery.style.color = 'var(--brown-dark)';
-            labelDelivery.querySelector('i').className = 'bi bi-square';
+            labelDelivery.style.borderColor = 'var(--border-color)';
+            labelDelivery.querySelector('.fulfillment-check').className = 'bi bi-circle fulfillment-check';
+            labelDelivery.querySelector('.fulfillment-check').style.color = 'var(--text-muted)';
             labelPickup.style.background = 'var(--brown-dark)'; labelPickup.style.color = 'white';
-            labelPickup.querySelector('i').className = 'bi bi-check-lg';
+            labelPickup.style.borderColor = 'var(--brown-dark)';
+            labelPickup.querySelector('.fulfillment-check').className = 'bi bi-check-circle-fill fulfillment-check';
+            labelPickup.querySelector('.fulfillment-check').style.color = 'white';
         } else {
             deliverySection.style.display = 'block';
             pickupSection.style.display = 'none';
             deliveryInput.disabled = false; deliveryInput.required = true;
+            kecamatanSelect.disabled = false; kecamatanSelect.required = true;
+            desaSelect.disabled = false; desaSelect.required = true;
             pickupInput.disabled = true; pickupInput.required = false;
             labelDelivery.style.background = 'var(--brown-dark)'; labelDelivery.style.color = 'white';
-            labelDelivery.querySelector('i').className = 'bi bi-check-lg';
+            labelDelivery.style.borderColor = 'var(--brown-dark)';
+            labelDelivery.querySelector('.fulfillment-check').className = 'bi bi-check-circle-fill fulfillment-check';
+            labelDelivery.querySelector('.fulfillment-check').style.color = 'white';
             labelPickup.style.background = 'transparent'; labelPickup.style.color = 'var(--brown-dark)';
-            labelPickup.querySelector('i').className = 'bi bi-square';
+            labelPickup.style.borderColor = 'var(--border-color)';
+            labelPickup.querySelector('.fulfillment-check').className = 'bi bi-circle fulfillment-check';
+            labelPickup.querySelector('.fulfillment-check').style.color = 'var(--text-muted)';
         }
         updateTotalDisplay();
     }

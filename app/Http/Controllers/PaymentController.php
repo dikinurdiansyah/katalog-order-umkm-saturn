@@ -36,6 +36,11 @@ class PaymentController extends Controller
 
     public function store(Request $request)
     {
+        $order = Order::find($request->input('order_id'));
+        if ($order && ($order->payment_method === 'COD' || $order->metode_pembayaran === 'Tunai')) {
+            return back()->with('error', 'Pembayaran tunai tidak memerlukan upload bukti transfer.');
+        }
+
         $validated = $request->validate([
             'order_id' => 'required|exists:orders,id|unique:payments,order_id',
             'amount_paid' => 'required|numeric|min:0',
@@ -149,6 +154,11 @@ class PaymentController extends Controller
     // ==========================================
     public function storeGuest(Request $request)
     {
+        $order = Order::find($request->input('order_id'));
+        if ($order && ($order->payment_method === 'COD' || $order->metode_pembayaran === 'Tunai')) {
+            return back()->with('error', 'Pembayaran tunai tidak memerlukan upload bukti transfer.');
+        }
+
         $validated = $request->validate([
             'order_id' => 'required|exists:orders,id',
             'amount_paid' => 'required|numeric|min:0',

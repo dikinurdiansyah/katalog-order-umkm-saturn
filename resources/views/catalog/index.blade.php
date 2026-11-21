@@ -56,18 +56,18 @@
     .hero-feature { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--text-dark); font-weight: 600; }
     .btn-pesan-premium { background: var(--brown-dark); color: white; padding: 16px 36px; border-radius: 14px; font-weight: 700; border: none; display: inline-flex; align-items: center; gap: 10px; transition: all 0.3s; box-shadow: 0 6px 20px rgba(61, 40, 23, 0.25); text-decoration: none; }
     .btn-pesan-premium:hover { background: var(--brown-medium); color: white; transform: translateY(-3px); box-shadow: 0 10px 30px rgba(61, 40, 23, 0.3); }
-    .hero-image { flex: 1; position: relative; z-index: 2; min-width: 0; }
+    .hero-image { flex: 1; position: relative; z-index: 2; min-width: 0; overflow: hidden; border-radius: 24px; background: var(--cream); box-shadow: 0 20px 60px rgba(61, 40, 23, 0.2); }
     @media (min-width: 992px) { .hero-image { flex: 0 0 45%; } }
-    .hero-image img { width: 100%; border-radius: 24px; object-fit: cover; height: 300px; box-shadow: 0 20px 60px rgba(61, 40, 23, 0.2); }
+    .hero-image img { display: block; width: 100%; border-radius: inherit; object-fit: cover; height: 300px; }
     @media (min-width: 768px) { .hero-image img { height: 350px; } }
     @media (min-width: 1200px) { .hero-image img { height: 400px; } }
-    .hero-image-badge { position: absolute; top: 20px; left: 20px; display: flex; flex-direction: column; gap: 10px; }
+    .hero-image-badge { position: absolute; top: 16px; left: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 2; }
     .badge-best { background: var(--orange-fav); color: white; padding: 8px 16px; border-radius: 25px; font-size: 0.8rem; font-weight: 800; box-shadow: 0 4px 12px rgba(231, 111, 81, 0.3); }
     .badge-fresh { background: var(--green-stock); color: white; padding: 8px 16px; border-radius: 25px; font-size: 0.8rem; font-weight: 800; box-shadow: 0 4px 12px rgba(42, 157, 143, 0.3); }
-    .hero-image-info { position: absolute; bottom: 20px; left: 20px; right: 20px; background: rgba(31, 41, 55, 0.9); color: white; padding: 16px 20px; border-radius: 16px; backdrop-filter: blur(10px); }
-    .hero-image-info h6 { margin: 0; font-weight: 800; font-size: 1rem; margin-bottom: 4px; }
-    .hero-image-info small { opacity: 0.85; font-size: 0.8rem; display: block; margin-bottom: 8px; }
-    .hero-image-info .price { font-weight: 900; font-size: 1.3rem; color: var(--orange-light); }
+    .hero-image-info { position: absolute; bottom: 16px; left: 16px; right: 16px; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title price" "description description"; align-items: center; column-gap: 12px; row-gap: 4px; background: rgba(31, 41, 55, 0.94); color: white; padding: 14px 16px; border-radius: 16px; backdrop-filter: blur(10px); text-align: left; }
+    .hero-image-info h6 { grid-area: title; min-width: 0; margin: 0; font-weight: 800; font-size: 1rem; line-height: 1.3; }
+    .hero-image-info small { grid-area: description; opacity: 0.88; font-size: 0.8rem; line-height: 1.45; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+    .hero-image-info .price { grid-area: price; font-weight: 900; font-size: 1.2rem; color: var(--orange-light); white-space: nowrap; }
 
     .filter-bar-premium { display: flex; align-items: center; gap: 20px; margin: 32px 0; flex-wrap: wrap; }
     .search-main { flex: 1; position: relative; min-width: 300px; }
@@ -213,7 +213,7 @@
         .col-6 { padding: 0 6px !important; margin-bottom: 12px !important; }
         .hero-title { font-size: 1.6rem !important; }
         .hero-premium { padding: 24px 16px !important; margin: 16px 0 !important; }
-        .hero-image img { height: 220px !important; }
+        .hero-image img { height: 240px !important; }
         .product-card-premium { margin-bottom: 12px !important; border-radius: 12px !important; }
         .product-image-premium { height: 140px !important; }
         .product-body-premium { padding: 10px !important; }
@@ -261,14 +261,12 @@
     @media (max-width: 480px) {
         .search-bar-premium { display: none; }
         .hero-title { font-size: 1.4rem !important; }
+        .filter-bar-premium { gap: 12px; }
+        .search-main { flex: 1 1 100%; min-width: 0; width: 100%; }
+        .search-main input { box-sizing: border-box; }
+        .sort-select { flex: 1 1 100%; min-width: 0; width: 100%; }
     }
 
-    .bottom-nav-mobile { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 2px solid var(--border-color); display: none; justify-content: space-around; padding: 8px 0 12px; z-index: 1000; box-shadow: 0 -4px 12px rgba(0,0,0,0.08); }
-    @media (max-width: 767px) { .bottom-nav-mobile { display: flex !important; } }
-    .bottom-nav-item-mobile { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: var(--text-muted); font-size: 0.65rem; font-weight: 600; gap: 4px; flex: 1; padding: 4px 8px; min-height: 56px; }
-    .bottom-nav-item-mobile i { font-size: 1.4rem; }
-    .bottom-nav-item-mobile.active { color: var(--brown-dark); font-weight: 700; }
-    .bottom-nav-item-mobile.active i { color: var(--brown-dark); }
 </style>
 
 <nav class="navbar-premium">
@@ -381,7 +379,7 @@
             </div>
             <div class="hero-image-info">
                 <h6>{{ $heroProduct->name }}</h6>
-                <small>{{ Str::limit($heroProduct->description, 50) }}</small>
+                <small>{{ $heroProduct->description ?: 'Dibuat fresh setiap hari dari bahan pilihan berkualitas.' }}</small>
                 <div class="price">Rp{{ number_format($heroProduct->price, 0, ',', '.') }}</div>
             </div>
         </div>
@@ -616,20 +614,5 @@
         </div>
     </div>
 </footer>
-
-<nav class="bottom-nav-mobile">
-    <a href="{{ route('catalog.index') }}" class="bottom-nav-item-mobile {{ request()->routeIs('catalog.*') ? 'active' : '' }}">
-        <i class="bi bi-grid-3x3-gap-fill"></i><span>KATALOG</span>
-    </a>
-    <a href="{{ route('cart.index') }}" class="bottom-nav-item-mobile {{ request()->routeIs('cart.*') ? 'active' : '' }}">
-        <i class="bi bi-bag-fill"></i><span>KERANJANG</span>
-    </a>
-    <a href="{{ route('orders.status') }}" class="bottom-nav-item-mobile {{ request()->routeIs('orders.status*') ? 'active' : '' }}">
-        <i class="bi bi-truck"></i><span>STATUS</span>
-    </a>
-    <a href="{{ route('contact.index') }}" class="bottom-nav-item-mobile {{ request()->routeIs('contact.*') ? 'active' : '' }}">
-        <i class="bi bi-at"></i><span>KONTAK</span>
-    </a>
-</nav>
 
 @endsection

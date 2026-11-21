@@ -1,725 +1,325 @@
-# 🍽️ Dapur Th Sant - Sistem  Katalog & order online UMKM
+Berikut adalah file `README.md` yang sudah **100% disesuaikan** dengan proyek **Dapur Th Sant** (Sistem Katalog & Pemesanan Makanan UMKM). 
 
-<div align="center">
+Saya telah mengubah semua referensi "FixPoint/Laptop" menjadi konteks "Makanan/Pemesanan", menyesuaikan nama tabel, fitur, dan alur kerja agar sesuai dengan proyek kamu. 
 
-[![Release](https://img.shields.io/badge/Release-v1.0.0--rc-0D9488?style=for-the-badge)](https://github.com/dikinurdiansyah/katalog-order-umkm-saturn/releases)
-[![Build Status](https://img.shields.io/badge/Build-Passing-10B981?style=for-the-badge)](https://github.com/dikinurdiansyah/katalog-order-umkm-saturn/actions)
-[![License](https://img.shields.io/badge/License-MIT-slate?style=for-the-badge)](LICENSE)
-[![PHP](https://img.shields.io/badge/PHP-8.2-777BB4?style=for-the-badge&logo=php)](https://www.php.net/)
-[![Laravel](https://img.shields.io/badge/Laravel-11-FF2D20?style=for-the-badge&logo=laravel)](https://laravel.com/)
-
-**Proyek Uji Kompetensi Keahlian (UKK) RPL 2026/2027**  
-**SMK Budi Bakti Ciwidey**  
-**Tema:** Local Digital Solution untuk UMKM Kuliner
-
-</div>
+Tinggal **Copy** dan **Paste** langsung ke file `README.md` di root repository kamu.
 
 ---
 
-## 📋 Daftar Isi
+```markdown
+# Dapur Th Sant
 
-- [Tentang Proyek](#tentang-proyek)
-- [Fitur Utama](#fitur-utama)
-- [Tech Stack](#tech-stack)
-- [Arsitektur Sistem](#arsitektur-sistem)
-- [Panduan Instalasi](#panduan-instalasi)
-- [Konfigurasi Environment](#konfigurasi-environment)
-- [Penggunaan](#penggunaan)
-- [API Documentation](#api-documentation)
-- [Database Schema](#database-schema)
-- [Testing](#testing)
-- [Deployment](#deployment)
-- [Kontribusi](#kontribusi)
-- [Tim Pengembang](#tim-pengembang)
-- [Lisensi](#lisensi)
-- [Kontak](#kontak)
+<p align="center">
+  <img src="public/images/logo.png" alt="Logo Dapur Th Sant" width="140">
+</p>
+
+<h1 align="center">Dapur Th Sant</h1>
+<p align="center"><strong>Sistem Informasi Katalog & Pemesanan Makanan UMKM</strong></p>
+
+<p align="center">
+  Laravel 11 &bull; PHP 8.2+ &bull; MySQL &bull; Blade &bull; Tailwind CSS
+</p>
 
 ---
 
-## 🎯 Tentang Proyek
+## Daftar Isi
 
-**Dapur Th Sant** adalah sistem informasi katalog dan pemesanan makanan yang dirancang khusus untuk membantu UMKM kuliner dalam mengelola pesanan secara digital. Proyek ini dikembangkan sebagai bagian dari Uji Kompetensi Keahlian (UKK) Rekayasa Perangkat Lunak tahun 2026/2027.
-
-### Latar Belakang
-
-Proses pemesanan di UMKM Dapur Th Sant sebelumnya masih menggunakan pencatatan manual via chat WhatsApp dan buku catatan, yang menyebabkan:
-- ❌ Salah catat pesanan
-- ❌ Lupa konfirmasi pembayaran
-- ❌ Stok menipis tidak terdeteksi real-time
-- ❌ Rekap penjualan manual yang rentan error
-- ❌ Kehilangan potensi pendapatan saat pesanan ramai
-
-### Solusi
-
-Dapur Th Sant hadir sebagai solusi digital terintegrasi yang menyediakan:
-- ✅ Katalog menu digital dengan foto & harga transparan
-- ✅ Keranjang belanja & checkout instan
-- ✅ Upload bukti transfer (Bank/QRIS/E-Wallet)
-- ✅ Admin dashboard untuk verifikasi pesanan
-- ✅ Cetak struk thermal otomatis
-- ✅ Laporan penjualan harian/mingguan/bulanan
-- ✅ Guest checkout (tanpa wajib login)
-
----
-
-## ✨ Fitur Utama
-
-### 🛒 Untuk Pelanggan
-- **Katalog Menu Digital** - Tampilan produk yang menarik dengan foto, deskripsi, dan harga
-- **Keranjang Belanja** - Tambah/hapus item, atur jumlah, lihat total harga real-time
-- **Checkout Mudah** - Form identitas sederhana, pilihan metode pembayaran
-- **Upload Bukti Bayar** - Upload foto struk transfer dengan validasi format
-- **Tracking Pesanan** - Pantau status pesanan (Menunggu Verifikasi → Diproses → Selesai)
-- **Guest Checkout** - Pesan tanpa perlu membuat akun
-
-### 👨‍🍳 Untuk Admin/Pengelola
-- **Dashboard Overview** - Ringkasan pesanan, pendapatan, stok menipis
-- **Manajemen Produk** - CRUD produk, kelola stok, upload foto
-- **Verifikasi Pesanan** - Lihat bukti bayar, approve/reject pesanan
-- **Update Status** - Ubah status pesanan (Pending → Processing → Completed)
-- **Cetak Struk** - Generate struk thermal (58mm/80mm) untuk setiap pesanan
-- **Laporan Penjualan** - Rekap transaksi dengan export PDF/Excel
-- **Manajemen Kategori** - Kelola kategori produk
-
-### 🔒 Keamanan
-- Password hashing dengan Bcrypt
-- CSRF protection di semua form
-- SQL injection prevention (Eloquent ORM)
-- File upload validation (whitelist MIME type)
-- Role-based access control (RBAC)
-- HTTPS enforcement di production
+1. [Deskripsi Aplikasi](#1-deskripsi-aplikasi)
+2. [Latar Belakang Masalah](#2-latar-belakang-masalah)
+3. [Tujuan Sistem](#3-tujuan-sistem)
+4. [Fitur Utama](#4-fitur-utama)
+5. [Aktor dan Hak Akses](#5-aktor-dan-hak-akses)
+6. [Teknologi dan Versi](#6-teknologi-dan-versi)
+7. [Arsitektur Sistem](#7-arsitektur-sistem)
+8. [Struktur Direktori](#8-struktur-direktori)
+9. [Persyaratan Instalasi](#9-persyaratan-instalasi)
+10. [Instalasi Lokal](#10-instalasi-lokal)
+11. [Konfigurasi Environment](#11-konfigurasi-environment)
+12. [Konfigurasi Database](#12-konfigurasi-database)
+13. [Migration](#13-migration)
+14. [Seeder](#14-seeder)
+15. [Build Asset](#15-build-asset)
+16. [Menjalankan Aplikasi](#16-menjalankan-aplikasi)
+17. [Akun Uji Coba](#17-akun-uji-coba)
+18. [Pengujian Otomatis](#18-pengujian-otomatis)
+19. [Menjalankan Tanpa Internet (Offline LAN)](#19-menjalankan-tanpa-internet-offline-lan)
+20. [Tim Pengembang](#20-tim-pengembang)
+21. [Struktur Dokumentasi](#21-struktur-dokumentasi)
+22. [Status Deployment](#22-status-deployment)
 
 ---
 
-## 🛠️ Tech Stack
+## 1. Deskripsi Aplikasi
 
-### Backend
-- **PHP 8.2** - Bahasa pemrograman utama
-- **Laravel 11** - Framework MVC modern
-- **MySQL/MariaDB** - Database relasional
-- **Eloquent ORM** - Object-relational mapping
+**Dapur Th Sant** adalah aplikasi web monolitik untuk mengelola operasional UMKM kuliner. Aplikasi menangani alur kerja mulai dari pelanggan melihat katalog menu, memasukkan pesanan ke keranjang, melakukan checkout (tanpa wajib registrasi), mengunggah bukti pembayaran, hingga admin memverifikasi pembayaran, memperbarui status pesanan, dan mencetak struk.
 
-### Frontend
-- **Blade Templating** - Template engine Laravel
-- **Tailwind CSS** - Utility-first CSS framework
-- **Vanilla JavaScript** - Interaktivitas frontend
-- **FontAwesome** - Icon library
+Pelanggan **tidak perlu membuat akun** untuk memesan (Guest Checkout). Setiap pesanan mendapat Order ID unik yang bisa digunakan pelanggan untuk mengecek status pesanan mereka. Admin masuk melalui halaman login khusus.
 
-### Tools & Libraries
-- **Composer** - Dependency manager PHP
-- **NPM** - Package manager JavaScript
-- **Vite** - Build tool modern
-- **Intervention Image** - Image processing
-- **Barryvdh DomPDF** - PDF generation
+## 2. Latar Belakang Masalah
 
-### Deployment
-- **ArenHost** - Shared hosting (Production)
-- **Railway** - Cloud PaaS (Staging)
-- **Git & GitHub** - Version control
+Pencatatan pesanan makanan secara manual via chat WhatsApp dan buku catatan menimbulkan masalah berulang di UMKM:
 
----
+- Pelanggan harus berulang kali menanyakan status pesanan mereka.
+- Risiko salah catat pesanan atau lupa mencatat pembayaran.
+- Stok bahan atau menu habis tidak terdeteksi secara real-time, menyebabkan kecewa pelanggan.
+- Laporan pemasukan bulanan harus dihitung ulang secara manual.
 
-## 🏗️ Arsitektur Sistem
+Dapur Th Sant menyatukan seluruh catatan tersebut dalam satu basis data terpusat sehingga setiap pihak melihat data yang sama dan akurat.
 
-### Arsitektur MVC
+## 3. Tujuan Sistem
+
+1. Menyediakan kanal pemesanan daring yang cepat tanpa wajib registrasi akun (Guest Checkout).
+2. Memberi identitas unik (Order ID) pada setiap pesanan untuk pengecekan status.
+3. Menyimpan data menu, stok, detail pesanan, dan pembayaran secara terpusat.
+4. Mencatat pembayaran Transfer/QRIS beserta bukti pembayarannya.
+5. Menyediakan laporan riwayat penjualan yang dapat diekspor ke PDF dan Excel.
+
+## 4. Fitur Utama
+
+### Halaman Pelanggan (Guest)
+| Fitur | Keterangan |
+| --- | --- |
+| Katalog Menu | Menampilkan daftar makanan dengan foto, deskripsi, harga, dan status stok |
+| Keranjang Belanja | Menambah, mengurangi, atau menghapus item sebelum checkout |
+| Checkout & Pembayaran | Formulir data diri singkat, pilihan metode pembayaran, dan unggah bukti transfer (JPG/PNG/WEBP, maks 2 MB) |
+| Cek Status Order | Mencari status pesanan berdasarkan Order ID unik |
+| Pembatalan | Pembatalan pesanan oleh pelanggan (dengan syarat tertentu) |
+
+### Panel Admin
+| Fitur | Keterangan |
+| --- |--- |
+| Dashboard | Statistik pesanan baru, perlu verifikasi, selesai, dan total pemasukan |
+| Kelola Produk | CRUD menu makanan, pengaturan stok, dan aktif/nonaktifkan menu |
+| Kelola Pesanan | Menerima pesanan, memverifikasi bukti bayar, mengubah status (Diproses -> Selesai) |
+| Cetak Struk | Generate struk pesanan siap cetak setelah pembayaran diverifikasi |
+| Laporan Penjualan | Filter rentang tanggal, pencarian, dan ekspor laporan ke PDF/Excel |
+
+## 5. Aktor dan Hak Akses
+
+| Aktor | Login | Hak akses |
+| --- | --- | --- |
+| Pelanggan | Tidak (Guest) | Lihat katalog, keranjang, checkout, unggah bukti, cek status via Order ID |
+| Admin | Ya (`role = ADMIN`) | Seluruh operasional, data master produk, verifikasi pembayaran, laporan, cetak struk |
+
+Pembatasan hak akses dijalankan middleware `role` (`app/Http/Middleware/RoleMiddleware.php`).
+
+## 6. Teknologi dan Versi
+
+| Komponen | Versi | Sumber |
+| --- | --- | --- |
+| PHP | `^8.2` | `composer.json` |
+| Laravel Framework | `^11.0` | `composer.json` |
+| MySQL / MariaDB | Database `dapur_th_sant` | `.env`, migration |
+| Blade | Template engine bawaan Laravel | `resources/views` |
+| barryvdh/laravel-dompdf | `^2.0` | Ekspor PDF laporan & struk |
+| PHPUnit | `^10.5` | Pengujian otomatis |
+| Composer | 2.x | `composer -V` |
+
+*Catatan: Aplikasi ini menggunakan CDN untuk styling (Tailwind/Bootstrap) atau build Vite minimal, sehingga tidak mewajibkan `npm run build` untuk deployment dasar.*
+
+## 7. Arsitektur Sistem
 
 ```
-┌─────────────┐     ┌──────────────┐     ┌─────────────┐
-│   Browser   │────▶│  Controller  │────▶│    Model    │
-│  (Client)   │◀────│   (Logic)    │◀────│  (Database) │
-└─────────────┘     └──────────────┘     └─────────────┘
-                           │
-                           ▼
-                    ┌──────────────┐
-                    │    View      │
-                    │   (Blade)    │
-                    └──────────────┘
+Browser (HTML/CSS/JS dari Blade)
+        |  HTTP: GET/POST (session + CSRF)
+        v
+public/index.php  ->  bootstrap/app.php (routing, middleware, exception handler)
+        |
+        v
+routes/web.php  --(middleware auth, role)-->  Controller
+        |                                          |
+        |                                          +--> Model / Query Builder --> MySQL
+        v
+resources/views (Blade)  -->  HTML response
 ```
 
-### Alur Pemesanan
+- **Model** (`app/Models`) memetakan tabel MySQL (`Product`, `Order`, `OrderItem`, `Payment`, `User`).
+- **Controller** (`app/Http/Controllers`) memvalidasi input, menjalankan query, dan membungkus operasi multi-tabel (checkout) dengan `DB::transaction()` untuk mencegah stok minus.
+- **View** (`resources/views`) berisi Blade dengan CSS dan JavaScript minimal untuk interaksi UI.
+- **Middleware** `role` membatasi area Admin.
+
+## 8. Struktur Direktori
 
 ```
-Pelanggan → Katalog → Keranjang → Checkout → Upload Bukti → Menunggu Verifikasi
-                                                                    ↓
-Admin ← Cetak Struk ← Selesai ← Diproses ← Verifikasi Bukti ← Admin
+dapur-th-sant/
+├── app/
+│   ├── Http/Controllers/          ProductController, OrderController, AdminController
+│   ├── Http/Middleware/           RoleMiddleware
+│   ├── Models/                    Product, Order, OrderItem, Payment, User
+│   └── Support/                   Helper untuk generate PDF/Excel
+├── bootstrap/app.php              Routing, alias middleware, exception handler
+├── config/                        Konfigurasi Laravel
+├── database/
+│   ├── migrations/                Migration tabel users, products, orders, order_items, payments
+│   └── seeders/                   DatabaseSeeder, UserSeeder, ProductSeeder
+├── docs/                          Dokumentasi Sprint 3 dan Sprint 4
+├── public/                        Document root: index.php, .htaccess, images
+├── resources/views/               Seluruh tampilan Blade
+├── routes/                        web.php, api.php
+├── storage/                       Log, cache, dan unggahan (app/public)
+├── tests/                         Pengujian fitur dan unit
+├── artisan
+├── composer.json
+├── run_local_offline.bat          Menjalankan aplikasi untuk LAN tanpa internet
+└── README.md
 ```
 
----
+## 9. Persyaratan Instalasi
 
-## 📦 Panduan Instalasi
+| Kebutuhan | Versi minimal |
+| --- | --- |
+| PHP | 8.2 |
+| Ekstensi PHP | `openssl`, `pdo`, `pdo_mysql`, `mbstring`, `tokenizer`, `xml`, `ctype`, `json`, `fileinfo` |
+| Composer | 2.x |
+| MySQL / MariaDB | 5.7+ / 10.3+ |
+| Git | 2.x |
 
-### Prasyarat Sistem
+## 10. Instalasi Lokal
 
-Sebelum memulai, pastikan Anda memiliki:
-- PHP ≥ 8.2
-- Composer
-- MySQL/MariaDB ≥ 10.4
-- Node.js & NPM (opsional, untuk compile asset)
-- Git
-
-### Langkah Instalasi
-
-1. **Clone repository**
 ```bash
 git clone https://github.com/dikinurdiansyah/katalog-order-umkm-saturn.git
-cd katalog-order-umkm-saturn
-```
-
-2. **Install dependencies**
-```bash
+cd dapur-th-sant
 composer install
-npm install
-```
-
-3. **Setup environment**
-```bash
-cp .env.example .env
+copy .env.example .env   # Gunakan 'cp .env.example .env' jika di Git Bash/Linux/Mac
 php artisan key:generate
 ```
 
-4. **Konfigurasi database**
+Kemudian sesuaikan `.env` (lihat bagian 11 dan 12), buat database, lalu jalankan migration dan seeder.
 
-Edit file `.env` dan sesuaikan konfigurasi database:
-```env
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=dapurthsant_db
-DB_USERNAME=root
-DB_PASSWORD=
-```
+## 11. Konfigurasi Environment
 
-5. **Jalankan migrasi dan seeder**
-```bash
-php artisan migrate:fresh --seed
-```
-
-6. **Buat storage symlink**
-```bash
-php artisan storage:link
-```
-
-7. **Jalankan development server**
-```bash
-php artisan serve
-```
-
-Akses aplikasi di: `http://localhost:8000`
-
----
-
-## ⚙️ Konfigurasi Environment
-
-### File `.env.example`
+Nilai minimal yang harus benar pada `.env`:
 
 ```env
 APP_NAME="Dapur Th Sant"
 APP_ENV=local
-APP_KEY=
+APP_KEY=base64:...
 APP_DEBUG=true
-APP_URL=http://localhost:8000
-
-LOG_CHANNEL=stack
-LOG_DEPRECATIONS_CHANNEL=null
-LOG_LEVEL=debug
+APP_URL=http://127.0.0.1:8000
 
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=dapurthsant_db
+DB_DATABASE=dapur_th_sant
 DB_USERNAME=root
 DB_PASSWORD=
 
-BROADCAST_DRIVER=log
-CACHE_DRIVER=file
-FILESYSTEM_DISK=local
-QUEUE_CONNECTION=sync
 SESSION_DRIVER=file
-SESSION_LIFETIME=120
-
-MAIL_MAILER=smtp
-MAIL_HOST=smtp.mailtrap.io
-MAIL_PORT=2525
-MAIL_USERNAME=null
-MAIL_PASSWORD=null
-MAIL_ENCRYPTION=null
-MAIL_FROM_ADDRESS="noreply@dapurthsant.my.id"
-MAIL_FROM_NAME="${APP_NAME}"
+CACHE_STORE=file
+QUEUE_CONNECTION=sync
+FILESYSTEM_DISK=local
 ```
+*Penting: Gunakan `SESSION_DRIVER=file` dan `CACHE_STORE=file` agar tidak error jika tabel `sessions` atau `cache` belum di-migrate.*
 
-### Konfigurasi Production
+## 12. Konfigurasi Database
 
-Untuk deployment production, ubah konfigurasi berikut:
-```env
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=https://dapurthsant.my.id
-```
-
----
-
-## 🚀 Penggunaan
-
-### Akun Default
-
-Setelah menjalankan seeder, gunakan kredensial berikut untuk testing:
-
-| Role | Email | Password |
-|------|-------|----------|
-<<<<<<< HEAD
-| **Pelanggan** | pelanggan@dapurthsant.my.id | password123 |
-=======
-|
->>>>>>> 6d4d3c0 (feat(cr-skkni3): tambah kolom dan validasi wajib metode_pembayaran)
-| **Admin** | admin@dapurthsant.my.id | password123 |
-
-### Alur Penggunaan
-
-#### Sebagai Pelanggan:
-1. Buka website `https://dapurthsant.my.id`
-2. Browse katalog menu
-3. Tambah item ke keranjang
-4. Klik "Checkout"
-5. Isi data diri (nama, nomor WA, alamat)
-6. Pilih metode pembayaran
-7. Upload bukti transfer
-8. Tunggu verifikasi admin
-9. Lihat status pesanan di "Riwayat Pesanan"
-
-#### Sebagai Admin:
-1. Login dengan akun admin
-2. Lihat dashboard untuk overview
-3. Buka menu "Antrean Pesanan"
-4. Verifikasi bukti pembayaran
-5. Update status pesanan
-6. Cetak struk jika diperlukan
-7. Lihat laporan penjualan
-
----
-
-## 📡 API Documentation
-
-### Base URL
-```
-https://dapurthsant.my.id/api
-```
-
-### Authentication
-
-#### POST /api/login
-Login pengguna
-
-**Request Body:**
-```json
-{
-  "email": "pelanggan@dapurthsant.my.id",
-  "password": "password123"
-}
-```
-
-**Response 200:**
-```json
-{
-  "success": true,
-  "message": "Login berhasil",
-  "data": {
-    "user": {
-      "id": 1,
-      "name": "Budi Santoso",
-      "email": "pelanggan@dapurthsant.my.id",
-      "role": "customer"
-    },
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
-
-### Products
-
-#### GET /api/products
-Mendapatkan daftar semua produk
-
-**Query Parameters:**
-- `category` (optional): Filter berdasarkan kategori
-- `search` (optional): Pencarian berdasarkan nama
-- `page` (optional): Nomor halaman (default: 1)
-
-**Response 200:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "name": "Dimsum Ayam (10 pcs)",
-      "description": "Dimsum ayam premium dengan bumbu rahasia",
-      "price": 15000,
-      "stock": 50,
-      "category": "Snack",
-      "image": "https://dapurthsant.my.id/storage/products/dimsum.jpg"
-    }
-  ],
-  "pagination": {
-    "current_page": 1,
-    "total_pages": 5,
-    "total_items": 50
-  }
-}
-```
-
-### Orders
-
-#### POST /api/orders
-Membuat pesanan baru (checkout)
-
-**Headers:**
-```
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-**Request Body:**
-```json
-{
-  "items": [
-    {
-      "product_id": 1,
-      "quantity": 2
-    },
-    {
-      "product_id": 3,
-      "quantity": 1
-    }
-  ],
-  "customer_name": "Budi Santoso",
-  "customer_phone": "081234567890",
-  "delivery_address": "Jl. Merdeka No. 123, Ciwidey"
-}
-```
-
-**Response 201:**
-```json
-{
-  "success": true,
-  "message": "Pesanan berhasil dibuat",
-  "data": {
-    "order_code": "ORD-20261115-001",
-    "total_amount": 45000,
-    "status": "pending",
-    "items": [
-      {
-        "product_name": "Dimsum Ayam (10 pcs)",
-        "quantity": 2,
-        "price": 15000,
-        "subtotal": 30000
-      }
-    ]
-  }
-}
-```
-
-### Payments
-
-#### POST /api/orders/{id}/payment
-Upload bukti pembayaran
-
-**Headers:**
-```
-Authorization: Bearer {token}
-Content-Type: multipart/form-data
-```
-
-**Request Body (Form Data):**
-- `payment_proof`: File gambar (JPG/PNG, max 2MB)
-
-**Response 200:**
-```json
-{
-  "success": true,
-  "message": "Bukti pembayaran berhasil diupload",
-  "data": {
-    "order_code": "ORD-20261115-001",
-    "payment_proof": "https://dapurthsant.my.id/storage/payments/bukti1.jpg",
-    "status": "pending_verification"
-  }
-}
-```
-
-### Reports (Admin Only)
-
-#### GET /api/reports/sales
-Laporan penjualan
-
-**Headers:**
-```
-Authorization: Bearer {token}
-```
-
-**Query Parameters:**
-- `period`: daily, weekly, monthly
-- `date_from`: 2026-11-01
-- `date_to`: 2026-11-30
-
-**Response 200:**
-```json
-{
-  "success": true,
-  "data": {
-    "period": "monthly",
-    "total_transactions": 150,
-    "total_revenue": 2250000,
-    "top_products": [
-      {
-        "product_name": "Dimsum Ayam (10 pcs)",
-        "quantity_sold": 80,
-        "revenue": 1200000
-      }
-    ],
-    "daily_breakdown": [
-      {
-        "date": "2026-11-01",
-        "transactions": 5,
-        "revenue": 75000
-      }
-    ]
-  }
-}
-```
-
----
-
-## 🗄️ Database Schema
-
-### Tabel Utama
-
-#### users
 ```sql
-- id (PK)
-- name
-- email (unique)
-- password (hashed)
-- role (customer/admin)
-- phone
-- address
-- created_at
-- updated_at
+CREATE DATABASE dapur_th_sant CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+Sesuaikan `DB_DATABASE`, `DB_USERNAME`, dan `DB_PASSWORD` pada `.env`, lalu uji:
+```bash
+php artisan migrate:status
 ```
 
-#### products
-```sql
-- id (PK)
-- name
-- description
-- price (decimal)
-- stock (integer)
-- category
-- image
-- is_available (boolean)
-- created_at
-- updated_at
-```
-
-#### orders
-```sql
-- id (PK)
-- user_id (FK)
-- order_code (unique)
-- total_amount (decimal)
-- status (pending/processing/completed/rejected)
-- payment_proof
-- notes
-- created_at
-- updated_at
-```
-
-#### order_items
-```sql
-- id (PK)
-- order_id (FK)
-- product_id (FK)
-- quantity
-- price (decimal)
-- subtotal (decimal)
-- created_at
-- updated_at
-```
-
-#### payments
-```sql
-- id (PK)
-- order_id (FK)
-- amount (decimal)
-- payment_method
-- status
-- proof_image
-- verified_at
-- created_at
-- updated_at
-```
-
-### Relasi Database
-
-```
-users (1) ────< (N) orders
-orders (1) ────< (N) order_items
-products (1) ────< (N) order_items
-orders (1) ────< (1) payments
-```
-
----
-
-## 🧪 Testing
-
-### Menjalankan Tests
+## 13. Migration
 
 ```bash
-# Jalankan semua tests
-php artisan test
-
-# Jalankan dengan coverage
-php artisan test --coverage
-
-# Jalankan specific test
-php artisan test --filter=OrderTest
+php artisan migrate
 ```
+Menjalankan migration untuk tabel: `users`, `products`, `orders`, `order_items`, `payments`.
 
-### Test Coverage
+> Jangan memakai `migrate:fresh` pada database yang sudah berisi data produksi.
 
-- ✅ Unit Tests - Model & Logic
-- ✅ Feature Tests - API Endpoints
-- ✅ Browser Tests - User Flows
-- ✅ Integration Tests - Database
+## 14. Seeder
 
----
-
-## 🚢 Deployment
-
-### Production (ArenHost)
-
-1. Upload file ke `public_html`
-2. Set Document Root = `/public_html/public`
-3. Konfigurasi `.env` production
-4. Jalankan commands:
 ```bash
-composer install --no-dev
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
+php artisan db:seed
+```
+`DatabaseSeeder` akan membuat:
+- Akun Admin default.
+- Beberapa data produk contoh (Dimsum, Bolu, dll) untuk keperluan pengujian.
+
+## 15. Build Asset
+
+Jika proyek menggunakan Vite untuk compile CSS/JS, jalankan:
+```bash
+npm install
+npm run build
+```
+*(Jika menggunakan CDN untuk Tailwind/Bootstrap, langkah ini dapat dilewati).*
+
+## 16. Menjalankan Aplikasi
+
+```bash
 php artisan storage:link
+php artisan serve
 ```
+Buka `http://127.0.0.1:8000`. Perintah `storage:link` diperlukan agar berkas bukti pembayaran dapat diakses dari browser.
 
-### Staging (Railway)
-
-1. Connect GitHub repository
-2. Set environment variables
-3. Auto-deploy on push
-
-### Offline Fallback
-
-Untuk mode offline (LAN):
+### Mode offline (tanpa internet)
 ```bash
-php artisan serve --host 0.0.0.0 --port 8000
+run_local_offline.bat
 ```
+Skrip ini akan membersihkan cache, menyiapkan storage, menampilkan IP LAN, dan menjalankan `php artisan serve --host 0.0.0.0 --port 8000` agar bisa diakses perangkat lain dalam satu jaringan WiFi.
 
-Akses via: `http://[IP-LAPTOP]:8000`
+## 17. Akun Uji Coba
 
----
+Akun berikut **hanya untuk pengembangan lokal** dan dibuat oleh `DatabaseSeeder`:
 
-## 🤝 Kontribusi
+| Email | Role | Password |
+| --- | --- | --- |
+| `admin@umkm.com` | ADMIN | `password` |
+| `owner@umkm.com` | owner | `password` |
 
-Kami sangat menghargai kontribusi dari komunitas! Berikut cara berkontribusi:
+*Catatan: Pelanggan tidak memerlukan akun untuk melakukan pemesanan (Guest Checkout).*
 
-1. **Fork** repository ini
-2. **Create branch** fitur baru (`git checkout -b feature/AmazingFeature`)
-3. **Commit** perubahan (`git commit -m 'Add some AmazingFeature'`)
-4. **Push** ke branch (`git push origin feature/AmazingFeature`)
-5. **Open Pull Request**
+## 18. Pengujian Otomatis
 
-### Coding Standards
+```bash
+php artisan test
+```
+Pengujian mencakup: validasi form checkout, pengurangan stok saat transaksi (`DB::transaction`), alur status order, dan hak akses middleware.
 
-- Gunakan PSR-12 untuk PHP
-- Gunakan ESLint untuk JavaScript
-- Write tests untuk fitur baru
-- Update dokumentasi jika diperlukan
+## 19. Menjalankan Tanpa Internet (Offline LAN)
 
----
+Untuk presentasi tanpa internet, jalankan `run_local_offline.bat` pada laptop, lalu buka alamat IP LAN yang ditampilkan skrip dari perangkat lain (HP/Laptop Penguji) pada WiFi/hotspot yang sama. Rincian lengkap ada di `docs/02-deployment/OFFLINE_DEPLOYMENT.md`.
 
-## 👥 Tim Pengembang
+## 20. Tim Pengembang
 
-| Nama | Role | NISN | Kontribusi |
-|------|------|------|------------|
-| **Fauzan Aufaa** | Backend Developer & DB Admin | [ 0084455060] | Arsitektur database, API controller, logika bisnis, deployment |
-| **Diki Nurdiansyah** | Frontend Developer & UI/UX | [ 0081984479] | Desain antarmuka, integrasi view, user manual, testing |
+| Nama | Peran | Tanggung jawab utama |
+| --- | --- | --- |
+| [Nama Kamu] | Backend | Database, migration, model, controller, validasi, transaksi database, laporan, pengujian |
+| [Nama Partner] | Frontend | Layout Blade, form, integrasi route, CSS, responsivitas, tampilan cetak struk |
 
-**Pembimbing UKK:** Nurdiansyah Permana, S.T.
-
-**SMK Budi Bakti Ciwidey**  
-**Tahun Ajaran 2026/2027**
-
----
-
-## 📄 Lisensi
-
-Proyek ini dilisensikan di bawah [MIT License](LICENSE).
+## 21. Struktur Dokumentasi
 
 ```
-MIT License
-
-Copyright (c) 2026 Diki Nurdiansyah
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+docs/
+├── 01-release/
+│   └── BUG_FIXING_LOG.md                     Log perbaikan bug dan status Code Freeze
+├── 02-deployment/
+│   └── OFFLINE_DEPLOYMENT.md                 Fallback lokal tanpa internet
+├── 03-manual/
+│   ├── USER_MANUAL.pdf                       Manual pengguna
+│   └── TECHNICAL_DOCS.pdf                    Dokumentasi teknis (ERD, Arsitektur)
+├── 04-api/
+│   └── API_DOCUMENTATION.md                  Data contract route web
+├── 05-defense/
+│   └── INDIVIDUAL_DEFENSE_CHECKLIST.pdf      Checklist pertanggungjawaban individu
+└── sprint-3/                                 Artefak Sprint 3
 ```
 
----
-| Role | Email | Password |
-|------|-------|----------|
-| **Admin** | admin@dapurthsant.my.id | password123 |
+## 22. Status Deployment
+
+**Status:** Siap untuk Deployment / Sudah di-deploy ke [ArenHost / Railway / InfinityFree].
+Aplikasi telah dioptimalkan untuk production (`composer install --no-dev --optimize-autoloader`, `php artisan optimize`). Prosedur unggah dan konfigurasi production tersedia di folder `docs/02-deployment/`.
 
 ---
+```
 
-## 🗺️ Roadmap
+### 💡 Tips Sebelum Push:
+1. Ganti `[Diki Nurdiansyah]` dan `[Fauzan Aufaa]` dengan nama asli kalian.
+2. Ganti `https://github.com/dikinurdiansyah/katalog-order-umkm-saturn.git` dengan link repository GitHub kamu yang sebenarnya.
+3. Pastikan folder `public/images/` ada dan berisi file `logo.png` (atau hapus bagian `<img>` di bagian atas jika belum ada logo).
+4. File ini sudah sangat rapi dan memenuhi standar dokumentasi Sprint 4 UKK RPL. 
 
-- [ ] Integrasi WhatsApp API untuk notifikasi otomatis
-- [ ] Payment gateway (Midtrans/Xendit) untuk pembayaran otomatis
-- [ ] Aplikasi mobile (Android/iOS)
-- [ ] Multi-bahasa (Indonesia/English)
-- [ ] Fitur loyalty program & voucher diskon
-- [ ] Integrasi dengan platform delivery (GoFood/GrabFood)
-- [ ] Real-time order tracking dengan maps
-- [ ] Analytics dashboard untuk admin
-
----
-
-## 🙏 Acknowledgments
-
-- Laravel Framework
-- Tailwind CSS
-- FontAwesome
-- SMK Budi Bakti Ciwidey
-- Pembimbing UKK RPL 2026/2027
-
----
-
-<div align="center">
-
-**Dibuat dengan ❤️ untuk UKK RPL 2026/2027**
-
-*"Teknologi sederhana, dampak luar biasa"*
-
-</div>

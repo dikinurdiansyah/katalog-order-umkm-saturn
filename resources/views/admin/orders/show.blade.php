@@ -3,6 +3,9 @@
 @section('title', 'Detail Order #' . $order->order_ref)
 
 @section('content')
+@php
+    $isCashPayment = $order->payment_method === 'COD' || $order->metode_pembayaran === 'Tunai';
+@endphp
 
 <style>
     .order-header {
@@ -45,14 +48,23 @@
     .audit-item.completed::before { background: var(--green-stock); }
 
     @media print {
-        body * { visibility: hidden; }
-        #area-cetak-struk, #area-cetak-struk * { visibility: visible; }
-        #area-cetak-struk {
-            position: absolute; left: 0; top: 0; width: 80mm;
-            font-family: 'Courier New', Courier, monospace; font-size: 12px;
-            color: #000; background: #fff; padding: 5mm; margin: 0; line-height: 1.4;
+        @page { margin: 0; }
+        html, body {
+            width: 80mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
-        @page { margin: 0; size: 80mm auto; }
+        body > :not(#area-cetak-struk) { display: none !important; }
+        #area-cetak-struk {
+            display: block !important;
+            position: static !important;
+            width: 80mm !important;
+            max-width: 80mm !important;
+            box-sizing: border-box !important;
+            font-family: 'Courier New', Courier, monospace; font-size: 12px;
+            color: #000; background: #fff; padding: 4mm; margin: 0; line-height: 1.35;
+        }
+        #area-cetak-struk * { box-sizing: border-box; }
         .struk-line {
             border-top: 1px dashed #000 !important; margin: 8px 0;
             -webkit-print-color-adjust: exact; print-color-adjust: exact;
@@ -87,8 +99,14 @@
             <div class="p-3 rounded" style="background: rgba(255,255,255,0.1);">
                 <div class="font-mono" style="font-size: 0.7rem; opacity: 0.8; margin-bottom: 4px;">METODE PEMBAYARAN</div>
                 <div class="fw-bold mb-2">{{ $order->metode_pembayaran }}</div>
-                <span class="badge" style="background: {{ $order->payment?->payment_status === 'VERIFIED' ? 'var(--green-stock)' : '#e76f51' }}; color: white; font-size: 0.7rem;">
-                    {{ $order->payment?->payment_status === 'VERIFIED' ? '✅ LUNAS' : ($order->payment ? '⏳ MENUNGGU VERIFIKASI' : '📤 BELUM UPLOAD BUKTI') }}
+                <span class="badge" style="background: {{ $order->payment?->payment_status === 'VERIFIED' ? 'var(--green-stock)' : ($isCashPayment ? 'var(--cream-dark)' : '#e76f51') }}; color: {{ $isCashPayment && $order->payment?->payment_status !== 'VERIFIED' ? 'var(--brown-dark)' : 'white' }}; font-size: 0.7rem;">
+                    @if($isCashPayment)
+                        {{ $order->payment?->payment_status === 'VERIFIED'
+                            ? '✅ LUNAS (TUNAI)'
+                            : '💵 BELUM DIBAYAR • ' . ($order->fulfillment_method === 'PICKUP' ? 'TUNAI SAAT DIAMBIL' : 'TUNAI SAAT DITERIMA') }}
+                    @else
+                        {{ $order->payment?->payment_status === 'VERIFIED' ? '✅ LUNAS' : ($order->payment ? '⏳ MENUNGGU VERIFIKASI' : '📤 BELUM UPLOAD BUKTI') }}
+                    @endif
                 </span>
             </div>
         </div>
@@ -96,19 +114,20 @@
 </div>
 
 <div class="admin-card mb-4">
+    @php $isPickup = $order->fulfillment_method === 'PICKUP'; @endphp
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h5 class="fw-bold mb-1">PROSES PESANAN AKTIF: TAHAP {{ $currentStage }} DARI 5</h5>
-            <small class="text-muted font-mono">KLOTER PENGUKUSAN #4 • DAPUR PUSAT SUKAJADI</small>
+            <h5 class="fw-bold mb-1">PROSES PESANAN AKTIF: TAHAP {{ $currentStage }} DARI {{ $isPickup ? 4 : 5 }}</h5>
+            <small class="text-muted font-mono">{{ $isPickup ? 'PENGAMBILAN DI OUTLET' : 'KLOTER PENGUKUSAN #4 • DAPUR PUSAT SUKAJADI' }}</small>
         </div>
 
         <form method="POST" action="{{ route('admin.orders.updateStatus', $order) }}" class="d-flex gap-2 align-items-center">
             @csrf
             <select name="status" class="form-select form-select-sm" style="width: 280px;">
                 <option value="MENUNGGU_KONFIRMASI" {{ $order->status == 'MENUNGGU_KONFIRMASI' ? 'selected' : '' }}>1. Menunggu Konfirmasi</option>
-                <option value="DIPROSES" {{ $order->status == 'DIPROSES' ? 'selected' : '' }}>2 & 3. Diproses / Siap Dikirim</option>
-                <option value="DIKIRIM" {{ $order->status == 'DIKIRIM' ? 'selected' : '' }}>4. Dalam Pengantaran</option>
-                <option value="SELESAI" {{ $order->status == 'SELESAI' ? 'selected' : '' }}>5. Selesai (Pesanan Diterima)</option>
+                <option value="DIPROSES" {{ $order->status == 'DIPROSES' ? 'selected' : '' }}>{{ $isPickup ? '2. Sedang Disiapkan' : '2 & 3. Diproses / Siap Dikirim' }}</option>
+                <option value="DIKIRIM" {{ $order->status == 'DIKIRIM' ? 'selected' : '' }}>{{ $isPickup ? '3. Siap Diambil' : '4. Dalam Pengantaran' }}</option>
+                <option value="SELESAI" {{ $order->status == 'SELESAI' ? 'selected' : '' }}>{{ $isPickup ? '4. Selesai Diambil' : '5. Selesai (Pesanan Diterima)' }}</option>
                 <option value="DIBATALKAN" {{ $order->status == 'DIBATALKAN' ? 'selected' : '' }}>6. Dibatalkan</option>
             </select>
             <button type="submit" class="btn" style="background: var(--brown-dark); color: white;">
@@ -129,13 +148,20 @@
             $timePengantaran = $createdWIB->copy()->addMinutes(45);
             $timeSelesai = $createdWIB->copy()->addMinutes(60);
 
-            $stages = [
-                ['num' => 1, 'title' => 'KONFIRMASI', 'time' => $timeKonfirmasi->format('H:i') . ' WIB', 'sub' => 'Terkonfirmasi', 'icon' => 'check'],
-                ['num' => 2, 'title' => 'SEDANG DIKUKUS', 'time' => $timeDikukus->format('H:i') . ' WIB', 'sub' => 'Kloter #4', 'icon' => 'cup-hot'],
-                ['num' => 3, 'title' => 'SIAP DIKIRIM', 'time' => $timeSiapKirim->format('H:i') . ' WIB', 'sub' => 'Pengepakan Mika', 'icon' => 'box'],
-                ['num' => 4, 'title' => 'PENGANTARAN', 'time' => $timePengantaran->format('H:i') . ' WIB', 'sub' => 'Dalam Perjalanan', 'icon' => 'truck'],
-                ['num' => 5, 'title' => 'SELESAI', 'time' => $timeSelesai->format('H:i') . ' WIB', 'sub' => 'Verifikasi Pembayaran', 'icon' => 'check-circle'],
-            ];
+            $stages = $isPickup
+                ? [
+                    ['num' => 1, 'title' => 'KONFIRMASI', 'time' => $timeKonfirmasi->format('H:i') . ' WIB', 'sub' => 'Terkonfirmasi', 'icon' => 'check'],
+                    ['num' => 2, 'title' => 'SEDANG DISIAPKAN', 'time' => $timeDikukus->format('H:i') . ' WIB', 'sub' => 'Diproses dapur', 'icon' => 'cup-hot'],
+                    ['num' => 3, 'title' => 'SIAP DIAMBIL', 'time' => $timeSiapKirim->format('H:i') . ' WIB', 'sub' => 'Menunggu pelanggan', 'icon' => 'shop'],
+                    ['num' => 4, 'title' => 'SELESAI DIAMBIL', 'time' => $timeSelesai->format('H:i') . ' WIB', 'sub' => 'Pesanan diterima', 'icon' => 'check-circle'],
+                ]
+                : [
+                    ['num' => 1, 'title' => 'KONFIRMASI', 'time' => $timeKonfirmasi->format('H:i') . ' WIB', 'sub' => 'Terkonfirmasi', 'icon' => 'check'],
+                    ['num' => 2, 'title' => 'SEDANG DIKUKUS', 'time' => $timeDikukus->format('H:i') . ' WIB', 'sub' => 'Kloter #4', 'icon' => 'cup-hot'],
+                    ['num' => 3, 'title' => 'SIAP DIKIRIM', 'time' => $timeSiapKirim->format('H:i') . ' WIB', 'sub' => 'Pengepakan Mika', 'icon' => 'box'],
+                    ['num' => 4, 'title' => 'PENGANTARAN', 'time' => $timePengantaran->format('H:i') . ' WIB', 'sub' => 'Dalam Perjalanan', 'icon' => 'truck'],
+                    ['num' => 5, 'title' => 'SELESAI', 'time' => $timeSelesai->format('H:i') . ' WIB', 'sub' => 'Verifikasi Pembayaran', 'icon' => 'check-circle'],
+                ];
         @endphp
 
         @foreach($stages as $stage)
@@ -183,11 +209,11 @@
 
         <div class="admin-card">
             <div class="card-header-custom">
-                <div class="card-title-custom"><i class="bi bi-geo-alt-fill"></i> Alamat & Rute Pengantaran</div>
+                <div class="card-title-custom"><i class="bi bi-{{ $isPickup ? 'shop' : 'geo-alt-fill' }}"></i> {{ $isPickup ? 'Lokasi & Catatan Pengambilan' : 'Alamat & Rute Pengantaran' }}</div>
             </div>
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <div>
-                    <div class="font-mono" style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">TUJUAN PENGIRIMAN</div>
+                    <div class="font-mono" style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">{{ $isPickup ? 'CATATAN PENGAMBILAN' : 'TUJUAN PENGIRIMAN' }}</div>
                     <div class="fw-bold mt-1" style="font-size: 0.9rem;">{{ Str::title($order->shipping_address) ?? 'Alamat tidak tersedia' }}</div>
                 </div>
                 @if($order->fulfillment_method !== 'PICKUP')
@@ -209,7 +235,7 @@
             </div>
             @else
             <div class="p-3 rounded" style="background: var(--cream-light);">
-                <small class="text-muted font-mono">📍 Pelanggan akan mengambil sendiri di outlet</small>
+                <small class="text-muted font-mono">📍 Pelanggan akan mengambil sendiri di outlet. Tidak ada pengantaran.</small>
             </div>
             @endif
         </div>
@@ -275,26 +301,82 @@
             </div>
         </div>
 
-        <div class="admin-card mb-4" style="border-left: 4px solid {{ $order->payment?->payment_status === 'VERIFIED' ? 'var(--green-stock)' : 'var(--orange-fav)' }};">
+        <div class="admin-card mb-4" style="border-left: 4px solid {{ $order->payment?->payment_status === 'VERIFIED' ? 'var(--green-stock)' : ($isCashPayment ? 'var(--brown-dark)' : 'var(--orange-fav)') }};">
             <div class="card-header-custom">
-                <div class="card-title-custom"><i class="bi bi-bank"></i> BUKTI PEMBAYARAN ({{ $order->payment_method }})</div>
-                <span class="badge" style="background: {{ $order->payment?->payment_status === 'VERIFIED' ? 'var(--green-stock)' : ($order->payment?->payment_status === 'REJECTED' ? '#c53030' : 'var(--orange-fav)') }}; color: white;">
-                    @if($order->payment?->payment_status === 'VERIFIED') ✅ LUNAS / TERVERIFIKASI
-                    @elseif($order->payment?->payment_status === 'REJECTED') ❌ DITOLAK
-                    @elseif($order->payment) ⏳ MENUNGGU VERIFIKASI
-                    @else 📤 BELUM UPLOAD
-                    @endif
-                </span>
+                <div class="card-title-custom">
+                    <i class="bi bi-{{ $isCashPayment ? 'cash-stack' : 'bank' }}"></i>
+                    {{ $isCashPayment ? 'PEMBAYARAN TUNAI (COD)' : 'BUKTI PEMBAYARAN (' . $order->payment_method . ')' }}
+                </div>
+                @if($isCashPayment)
+                    <span class="badge" style="background: var(--cream-dark); color: var(--brown-dark);">💵 TIDAK PERLU UPLOAD</span>
+                @else
+                    <span class="badge" style="background: {{ $order->payment?->payment_status === 'VERIFIED' ? 'var(--green-stock)' : ($order->payment?->payment_status === 'REJECTED' ? '#c53030' : 'var(--orange-fav)') }}; color: white;">
+                        @if($order->payment?->payment_status === 'VERIFIED') ✅ LUNAS / TERVERIFIKASI
+                        @elseif($order->payment?->payment_status === 'REJECTED') ❌ DITOLAK
+                        @elseif($order->payment) ⏳ MENUNGGU VERIFIKASI
+                        @else 📤 BELUM UPLOAD
+                        @endif
+                    </span>
+                @endif
             </div>
 
+            @if($isCashPayment)
+                @if($order->payment?->payment_status === 'VERIFIED')
+                    <div class="p-3 rounded" style="background: var(--green-bg);">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-check-circle-fill" style="color: var(--green-stock); font-size: 1.5rem;"></i>
+                            <div>
+                                <div class="fw-bold" style="color: var(--green-stock);">Pembayaran tunai lunas</div>
+                                <small class="text-muted d-block">Diterima: Rp {{ number_format($order->payment->amount_paid, 0, ',', '.') }}</small>
+                                <small class="text-muted d-block">Kembalian: Rp {{ number_format($order->payment->change_amount, 0, ',', '.') }}</small>
+                                <small class="text-muted d-block">Dicatat {{ $order->payment->verified_at?->timezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</small>
+                            </div>
+                        </div>
+                    </div>
+                @else
+                    <div class="p-3 rounded mb-3" style="background: var(--cream-light);">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-cash-stack" style="color: var(--brown-dark); font-size: 1.5rem;"></i>
+                            <div>
+                                <div class="fw-bold text-brown">Belum dibayar - tunai</div>
+                                <small class="text-muted">
+                                    {{ $order->fulfillment_method === 'PICKUP'
+                                        ? 'Tagihan dibayar saat pelanggan mengambil pesanan di outlet.'
+                                        : 'Tagihan dibayar tunai saat pesanan diterima.' }}
+                                    Bukti transfer tidak diperlukan.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <form method="POST" action="{{ route('admin.orders.cashPayment', $order) }}" class="row g-2 align-items-end">
+                        @csrf
+                        <div class="col">
+                            <label for="cash-amount-paid" class="form-label mb-1">Uang diterima</label>
+                            <input
+                                type="number"
+                                name="amount_paid"
+                                id="cash-amount-paid"
+                                class="form-control"
+                                min="{{ $order->total_amount }}"
+                                step="1"
+                                value="{{ old('amount_paid', $order->total_amount) }}"
+                                required
+                            >
+                            @error('amount_paid')
+                                <small class="text-danger">{{ $message }}</small>
+                            @enderror
+                        </div>
+                        <div class="col-auto">
+                            <button type="submit" class="btn" style="background: var(--green-stock); color: white;">
+                                <i class="bi bi-check-circle"></i> Tandai Tunai Lunas
+                            </button>
+                        </div>
+                    </form>
+                @endif
+            @else
             @if($order->payment && $order->payment->receipt_image_path)
                 @php
-                    $rawPath = $order->payment->receipt_image_path;
-                    $cleanPath = str_replace('storage/', '', $rawPath);
-                    $imageUrl = asset('storage/' . $cleanPath);
-                    if (!file_exists(public_path('storage/' . $cleanPath)) && file_exists(public_path($cleanPath))) {
-                        $imageUrl = asset($cleanPath);
-                    }
+                    $imageUrl = route('admin.orders.receipt', $order);
                 @endphp
 
                 <div class="text-center mb-3 p-3" style="background: var(--cream-light); border-radius: 8px;">
@@ -358,6 +440,7 @@
                 </div>
             </div>
             @endif
+            @endif
         </div>
     </div>
 </div>
@@ -418,11 +501,23 @@
                     <i class="bi bi-printer-fill"></i> Cetak Struk Thermal
                 </button>
                 @if($order->status !== 'SELESAI' && $order->status !== 'DIBATALKAN')
+                @php
+                    $nextOrderStatus = match($order->status) {
+                        'MENUNGGU_KONFIRMASI' => 'DIPROSES',
+                        'DIPROSES' => 'DIKIRIM',
+                        default => 'SELESAI'
+                    };
+                    $nextOrderLabel = match($order->status) {
+                        'MENUNGGU_KONFIRMASI' => 'Diproses',
+                        'DIPROSES' => $isPickup ? 'Siap Diambil' : 'Siap Kirim',
+                        default => $isPickup ? 'Selesai Diambil' : 'Selesai'
+                    };
+                @endphp
                 <form method="POST" action="{{ route('admin.orders.updateStatus', $order) }}" class="d-inline">
                     @csrf
-                    <input type="hidden" name="status" value="{{ $order->status === 'MENUNGGU_KONFIRMASI' ? 'DIPROSES' : ($order->status === 'DIPROSES' ? 'DIKIRIM' : 'SELESAI') }}">
+                    <input type="hidden" name="status" value="{{ $nextOrderStatus }}">
                     <button type="submit" class="btn btn-sm" style="background: var(--orange-fav); color: white;">
-                        <i class="bi bi-check-lg"></i> Tandai {{ $order->status === 'MENUNGGU_KONFIRMASI' ? 'Diproses' : ($order->status === 'DIPROSES' ? 'Siap Kirim' : 'Selesai') }}
+                        <i class="bi bi-check-lg"></i> Tandai {{ $nextOrderLabel }}
                     </button>
                 </form>
                 @endif
@@ -435,11 +530,28 @@
 <!-- ✅ AREA CETAK STRUK DENGAN WAKTU REALTIME -->
 <!-- ========================================== -->
 <div id="area-cetak-struk" style="display: none;">
-    <div style="text-align: center; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #000; width: 80mm; padding: 5mm;">
+    <div style="text-align: center; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #000; width: 100%; box-sizing: border-box; padding: 0;">
         @php
             $settings = \App\Models\Setting::firstWhere('key', 'outlet_info');
             $data = $settings ? (is_array($settings->value) ? $settings->value : json_decode($settings->value, true)) : [];
             $receiptLogo = $data['logo_url'] ?? null;
+            $receiptOrderStatus = match($order->status) {
+                'MENUNGGU_KONFIRMASI' => 'MENUNGGU KONFIRMASI',
+                'DIPROSES' => $isPickup ? 'SEDANG DISIAPKAN' : 'SEDANG DIPROSES',
+                'DIKIRIM' => $isPickup ? 'SIAP DIAMBIL' : 'DALAM PENGANTARAN',
+                'SELESAI' => $isPickup ? 'SELESAI DIAMBIL' : 'SELESAI DITERIMA',
+                'DIBATALKAN' => 'DIBATALKAN',
+                default => $order->status
+            };
+            $receiptPaymentStatus = $order->payment?->payment_status === 'VERIFIED'
+                ? 'LUNAS'
+                : ($order->payment?->payment_status === 'REJECTED'
+                    ? 'PEMBAYARAN DITOLAK'
+                    : ($isCashPayment ? 'BELUM DIBAYAR - TUNAI' : 'MENUNGGU PEMBAYARAN'));
+            $receiptShippingAmount = max(
+                0,
+                $order->total_amount - $order->subtotal_amount + $order->discount_amount - 2000
+            );
         @endphp
 
         @if($receiptLogo)
@@ -469,6 +581,10 @@
         <div style="display: flex; justify-content: space-between; font-size: 11px;">
             <span>Pelanggan:</span>
             <span>{{ Str::limit($order->customer_name, 15) }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px;">
+            <span>Pesanan:</span>
+            <span class="struk-bold">{{ $isPickup ? 'AMBIL DI OUTLET' : 'DELIVERY' }}</span>
         </div>
 
         <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
@@ -501,7 +617,7 @@
         @if($order->fulfillment_method !== 'PICKUP')
         <div style="display: flex; justify-content: space-between; font-size: 11px;">
             <span>Ongkir</span>
-            <span>Rp {{ number_format($order->total_amount - $order->subtotal_amount - $order->discount_amount - 2000, 0, ',', '.') }}</span>
+            <span>Rp {{ number_format($receiptShippingAmount, 0, ',', '.') }}</span>
         </div>
         @endif
 
@@ -515,18 +631,30 @@
         <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
 
         <div style="display: flex; justify-content: space-between; font-size: 11px;">
-            <span>Metode:</span>
-            <span class="struk-bold">{{ str_replace('_', ' ', $order->payment_method) }}</span>
+            <span>Metode Bayar:</span>
+            <span class="struk-bold">{{ $order->metode_pembayaran }}</span>
         </div>
+        @if($isPickup)
         <div style="display: flex; justify-content: space-between; font-size: 11px;">
-            <span>Status:</span>
-            <span class="struk-bold">{{ $order->status }}</span>
+            <span>Status Pesanan:</span>
+            <span class="struk-bold">{{ $receiptOrderStatus }}</span>
+        </div>
+        @endif
+        <div style="display: flex; justify-content: space-between; font-size: 11px;">
+            <span>Status Bayar:</span>
+            <span class="struk-bold">{{ $receiptPaymentStatus }}</span>
         </div>
 
-        @if($order->shipping_address && $order->fulfillment_method !== 'PICKUP')
+        @if($order->shipping_address)
         <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
-        <div class="struk-bold" style="font-size: 11px;">ALAMAT PENGIRIMAN:</div>
-        <div style="font-size: 10px;">{{ $order->shipping_address }}</div>
+        @if($isPickup)
+            <div class="struk-bold" style="font-size: 11px;">LOKASI PENGAMBILAN:</div>
+            <div style="font-size: 10px;">{{ $data['address'] ?? 'Alamat outlet belum diatur' }}</div>
+            <div class="struk-bold mt-1" style="font-size: 11px;">CATATAN PENGAMBILAN:</div>
+        @else
+            <div class="struk-bold" style="font-size: 11px;">ALAMAT PENGIRIMAN:</div>
+        @endif
+        <div style="font-size: 10px; overflow-wrap: anywhere;">{{ $order->shipping_address }}</div>
         @endif
 
         @if($order->notes)
@@ -633,11 +761,43 @@
         }
 
         const strukArea = document.getElementById('area-cetak-struk');
+        const originalParent = strukArea.parentNode;
+        const originalNextSibling = strukArea.nextSibling;
+        const originalStyle = strukArea.getAttribute('style');
+        const pageStyle = document.createElement('style');
+        let restored = false;
+
+        const restoreReceipt = () => {
+            if (restored) return;
+            restored = true;
+            if (originalNextSibling) {
+                originalParent.insertBefore(strukArea, originalNextSibling);
+            } else {
+                originalParent.appendChild(strukArea);
+            }
+            if (originalStyle === null) {
+                strukArea.removeAttribute('style');
+            } else {
+                strukArea.setAttribute('style', originalStyle);
+            }
+            pageStyle.remove();
+        };
+
         strukArea.style.display = 'block';
+        strukArea.style.position = 'absolute';
+        strukArea.style.left = '-10000px';
+        strukArea.style.top = '0';
+        strukArea.style.width = '80mm';
+        strukArea.style.boxSizing = 'border-box';
+        strukArea.style.padding = '4mm';
+        document.body.appendChild(strukArea);
+
+        const pageHeight = Math.ceil(strukArea.scrollHeight * 25.4 / 96) + 2;
+        pageStyle.textContent = `@page { size: 80mm ${pageHeight}mm; margin: 0; }`;
+        document.head.appendChild(pageStyle);
+        window.addEventListener('afterprint', restoreReceipt, { once: true });
         window.print();
-        setTimeout(() => {
-            strukArea.style.display = 'none';
-        }, 1000);
+        setTimeout(restoreReceipt, 1000);
     }
 
     @if($order->fulfillment_method !== 'PICKUP')

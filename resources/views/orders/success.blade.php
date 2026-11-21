@@ -279,7 +279,7 @@
                     </div>
                     @else
                     <div class="card-warm p-3 mb-3" style="background: white; border-radius: 12px;">
-                        <p class="mb-0">Silakan hubungi admin untuk mendapatkan detail rekening tujuan, lalu unggah bukti transfer setelah pembayaran.</p>
+                        <p class="mb-0">901796713307.SeaBank</p>
                     </div>
                     @endif
 

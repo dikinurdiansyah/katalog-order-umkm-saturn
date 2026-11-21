@@ -8,15 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('orders', function (Blueprint $table) {
-            $table->string('metode_pembayaran')->default('QRIS');
-        });
+        if (!Schema::hasColumn('orders', 'metode_pembayaran')) {
+            Schema::table('orders', function (Blueprint $table) {
+                $table->string('metode_pembayaran')->default('QRIS');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('orders', function (Blueprint $table) {
-            $table->dropColumn('metode_pembayaran');
-        });
+        // The column may have existed before this migration; preserve production data.
     }
 };

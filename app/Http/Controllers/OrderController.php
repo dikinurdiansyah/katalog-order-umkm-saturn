@@ -7,8 +7,11 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Promo;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
 
 class OrderController extends Controller
 {
@@ -300,14 +303,21 @@ class OrderController extends Controller
     {
         $order->load(['promo', 'orderItems.product', 'payment']);
 
-        // ✅ PERBAIKAN PENTING: 'DIKIRIM' di-map ke 4 agar Stage "Pengantaran" aktif
-        $stageMap = [
-            'MENUNGGU_KONFIRMASI' => 1,
-            'DIPROSES' => 2,       // Stage 2 (Dikukus) & 3 (Siap Kirim)
-            'DIKIRIM' => 4,        // ✅ Stage 4 (Dalam Pengantaran)
-            'SELESAI' => 5,        // Stage 5 (Selesai)
-            'DIBATALKAN' => 0
-        ];
+        $stageMap = $order->fulfillment_method === 'PICKUP'
+            ? [
+                'MENUNGGU_KONFIRMASI' => 1,
+                'DIPROSES' => 2,
+                'DIKIRIM' => 3,
+                'SELESAI' => 4,
+                'DIBATALKAN' => 0
+            ]
+            : [
+                'MENUNGGU_KONFIRMASI' => 1,
+                'DIPROSES' => 2,
+                'DIKIRIM' => 4,
+                'SELESAI' => 5,
+                'DIBATALKAN' => 0
+            ];
 
         $currentStage = $stageMap[$order->status] ?? 1;
 
@@ -316,6 +326,55 @@ class OrderController extends Controller
         }
 
         return view('orders.status', compact('order'));
+    }
+
+    public function receipt(Order $order)
+    {
+        $receiptPath = $order->payment?->receipt_image_path;
+        if (!$receiptPath) {
+            abort(404);
+        }
+
+        $relativePath = ltrim(str_replace('\\', '/', $receiptPath), '/');
+        if (str_starts_with($relativePath, 'storage/')) {
+            $relativePath = substr($relativePath, strlen('storage/'));
+        }
+
+        $filename = basename($relativePath);
+        $candidates = match (true) {
+            str_starts_with($relativePath, 'bukti_pembayaran/') => [
+                storage_path('app/public/bukti_pembayaran/' . $filename),
+            ],
+            str_starts_with($relativePath, 'receipts/') => [
+                public_path('receipts/' . $filename),
+                storage_path('app/public/receipts/' . $filename),
+            ],
+            default => [],
+        };
+
+        $filePath = null;
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate) && is_readable($candidate)) {
+                $filePath = $candidate;
+                break;
+            }
+        }
+
+        if ($filePath === null) {
+            abort(404);
+        }
+
+        $contentType = match (strtolower(pathinfo($filePath, PATHINFO_EXTENSION))) {
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            default => abort(404),
+        };
+
+        return response()->file($filePath, [
+            'Content-Type' => $contentType,
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     // ==========================================
@@ -347,6 +406,45 @@ class OrderController extends Controller
         return back()->with('success', 'Status order berhasil diperbarui.');
     }
 
+    public function markCashPaid(Request $request, Order $order)
+    {
+        if ($order->payment_method !== 'COD' && $order->metode_pembayaran !== 'Tunai') {
+            return back()->with('error', 'Aksi ini hanya berlaku untuk pembayaran tunai.');
+        }
+
+        if ($order->payment?->payment_status === 'VERIFIED') {
+            return back()->with('error', 'Pembayaran pesanan ini sudah ditandai lunas.');
+        }
+
+        $validated = $request->validate([
+            'amount_paid' => ['required', 'numeric', 'min:' . $order->total_amount],
+        ], [
+            'amount_paid.min' => 'Jumlah uang diterima tidak boleh kurang dari total tagihan.',
+        ]);
+
+        $amountPaid = (float) $validated['amount_paid'];
+        $changeAmount = max(0, $amountPaid - (float) $order->total_amount);
+
+        DB::transaction(function () use ($order, $amountPaid, $changeAmount) {
+            Payment::updateOrCreate(
+                ['order_id' => $order->id],
+                [
+                    'amount_paid' => $amountPaid,
+                    'change_amount' => $changeAmount,
+                    'receipt_image_path' => null,
+                    'payment_status' => 'VERIFIED',
+                    'admin_notes' => 'Pembayaran tunai diterima oleh ' . (auth()->user()?->name ?? 'admin'),
+                    'verified_at' => now(),
+                ]
+            );
+        });
+
+        return back()->with(
+            'success',
+            'Pembayaran tunai ditandai lunas. Kembalian: Rp ' . number_format($changeAmount, 0, ',', '.')
+        );
+    }
+
     // ==========================================
     // ADMIN: Hapus Order
     // ==========================================
@@ -370,38 +468,87 @@ class OrderController extends Controller
     // ==========================================
     public function uploadBukti(Request $request, Order $order)
     {
-        $validated = $request->validate([
-            'receipt_image' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+        if ($order->payment_method === 'COD' || $order->metode_pembayaran === 'Tunai') {
+            return back()->with('error', 'Pembayaran tunai tidak memerlukan upload bukti transfer.');
+        }
+
+        $request->validate([
+            'receipt_image' => [
+                'required',
+                'bail',
+                'file',
+                'max:2048',
+                function ($attribute, $value, $fail) {
+                    $imageInfo = @getimagesize($value->getRealPath());
+
+                    if ($imageInfo === false || !in_array($imageInfo[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG], true)) {
+                        $fail('Bukti pembayaran harus berupa gambar JPG atau PNG.');
+                    }
+                },
+            ],
         ]);
 
+        $file = $request->file('receipt_image');
+        $imageInfo = @getimagesize($file->getRealPath());
+        if ($imageInfo === false) {
+            return back()->withErrors(['receipt_image' => 'File bukti pembayaran tidak dapat dibaca.']);
+        }
+
+        $extension = match ($imageInfo[2]) {
+            IMAGETYPE_JPEG => 'jpg',
+            IMAGETYPE_PNG => 'png',
+            default => null,
+        };
+        if ($extension === null) {
+            return back()->withErrors(['receipt_image' => 'Bukti pembayaran harus berupa gambar JPG atau PNG.']);
+        }
+
+        $filename = Str::uuid()->toString() . '.' . $extension;
+        $directory = storage_path('app/public/bukti_pembayaran');
+        $destination = $directory . DIRECTORY_SEPARATOR . $filename;
         try {
-            $path = $request->file('receipt_image')->store('bukti_pembayaran', 'public');
+            $file->move($directory, $filename);
+        } catch (FileException $e) {
+            report($e);
 
-            $payment = $order->payment;
+            return back()->with('error', 'Bukti pembayaran gagal disimpan. Silakan coba lagi.');
+        }
+        $path = 'bukti_pembayaran/' . $filename;
 
-            if ($payment) {
-                $payment->update([
-                    'receipt_image_path' => $path,
-                    'payment_status' => 'PENDING_REVIEW',
-                    'amount_paid' => $order->total_amount,
-                    'admin_notes' => 'Menunggu verifikasi admin',
-                ]);
-            } else {
-                Payment::create([
-                    'order_id' => $order->id,
-                    'receipt_image_path' => $path,
-                    'payment_status' => 'PENDING_REVIEW',
-                    'amount_paid' => $order->total_amount,
-                    'admin_notes' => 'Menunggu verifikasi admin',
+        try {
+            DB::transaction(function () use ($order, $path) {
+                $payment = $order->payment;
+
+                if ($payment) {
+                    $payment->update([
+                        'receipt_image_path' => $path,
+                        'payment_status' => 'PENDING_REVIEW',
+                        'amount_paid' => $order->total_amount,
+                        'admin_notes' => 'Menunggu verifikasi admin',
+                    ]);
+                } else {
+                    Payment::create([
+                        'order_id' => $order->id,
+                        'receipt_image_path' => $path,
+                        'payment_status' => 'PENDING_REVIEW',
+                        'amount_paid' => $order->total_amount,
+                        'admin_notes' => 'Menunggu verifikasi admin',
+                    ]);
+                }
+            });
+
+        } catch (QueryException $e) {
+            if (is_file($destination) && !unlink($destination)) {
+                logger()->warning('Could not remove uploaded receipt after payment save failed.', [
+                    'path' => $path,
                 ]);
             }
+            report($e);
 
-            // ✅ PERBAIKAN: Redirect langsung ke halaman status order agar flow lebih mulus
-            return redirect()->route('orders.status.show', $order->id)
-                ->with('success', 'Bukti pembayaran berhasil diupload! Pesanan Anda sedang diverifikasi.');
-
-        } catch (\Exception $e) {
-            return back()->with('error', 'Gagal mengupload bukti: ' . $e->getMessage());
+            return back()->with('error', 'Bukti pembayaran gagal disimpan. Silakan coba lagi atau hubungi admin.');
         }
+
+        return redirect()->route('orders.status.show', $order->id)
+            ->with('success', 'Bukti pembayaran berhasil diupload! Pesanan Anda sedang diverifikasi.');
     }
 }

@@ -285,9 +285,9 @@
             @if($order->payment && $order->payment->receipt_image_path)
                 <!-- Jika ADA bukti pembayaran -->
                 <div class="text-center mb-3 p-3" style="background: var(--cream-light); border-radius: 8px;">
-                    <img src="{{ asset('storage/' . $order->payment->receipt_image_path) }}" alt="Bukti Transfer" class="img-fluid rounded shadow-sm" style="max-height: 400px; max-width: 100%;">
+                    <img src="{{ route('admin.orders.receipt', $order) }}" alt="Bukti Transfer" class="img-fluid rounded shadow-sm" style="max-height: 400px; max-width: 100%;">
                     <div class="mt-2">
-                        <a href="{{ asset('storage/' . $order->payment->receipt_image_path) }}" target="_blank" class="btn-admin-outline btn-sm">
+                        <a href="{{ route('admin.orders.receipt', $order) }}" target="_blank" class="btn-admin-outline btn-sm">
                             <i class="bi bi-box-arrow-up-right"></i> Buka Gambar Ukuran Penuh
                         </a>
                     </div>
