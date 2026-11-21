@@ -36,7 +36,11 @@ class AuthController extends Controller
 
         $user = User::where('email', $credentials['email'])->first();
 
-        if ($user && Hash::check($credentials['password'], $user->password_hash)) {
+        if (
+            $user
+            && !$user->isUsingUnsafeSeedPassword($credentials['password'])
+            && Hash::check($credentials['password'], $user->password_hash)
+        ) {
             Auth::login($user);
             $request->session()->regenerate();
 
@@ -59,30 +63,4 @@ class AuthController extends Controller
         return redirect()->route('login')->with('success', 'Anda telah logout.');
     }
 
-    public function showRegister()
-    {
-        return view('auth.register');
-    }
-
-    public function register(Request $request)
-    {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:6|confirmed',
-            'role' => 'required|in:ADMIN,OWNER',
-            'phone_number' => 'nullable|string|max:20',
-        ]);
-
-        User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password_hash' => Hash::make($validated['password']),
-            'role' => $validated['role'],
-            'phone_number' => $validated['phone_number'] ?? null,
-        ]);
-
-        return redirect()->route('login')
-            ->with('success', 'Akun berhasil dibuat. Silakan login.');
-    }
 }

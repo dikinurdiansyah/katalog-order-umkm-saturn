@@ -417,10 +417,8 @@
                     </div>
                 </div>
 
-                <form method="POST" action="{{ route('payments.guest.store') }}" enctype="multipart/form-data">
+                <form method="POST" action="{{ route('orders.uploadBukti', ['order_ref' => $order->order_ref]) }}" enctype="multipart/form-data">
                     @csrf
-                    <input type="hidden" name="order_id" value="{{ $order->id }}">
-                    <input type="hidden" name="amount_paid" value="{{ $order->total_amount }}">
 
                     <div class="mb-3">
                         <label class="section-label">UPLOAD ULANG BUKTI TRANSFER <span class="text-danger">*</span></label>

@@ -291,7 +291,9 @@ class AdminController extends Controller
         $validated = $request->validate([
             'code' => 'required|string|max:50|unique:promos,code',
             'discount_type' => 'required|in:FIXED,PERCENT',
-            'discount_amount' => 'required|numeric|min:0',
+            'discount_amount' => 'required|numeric|min:0' . (
+                $request->input('discount_type') === 'PERCENT' ? '|max:100' : ''
+            ),
             'min_order_amount' => 'required|numeric|min:0',
             'is_active' => 'nullable|boolean',
             'valid_until' => 'required|date',
@@ -310,7 +312,9 @@ class AdminController extends Controller
         $validated = $request->validate([
             'code' => 'required|string|max:50|unique:promos,code,' . $promo->id,
             'discount_type' => 'required|in:FIXED,PERCENT',
-            'discount_amount' => 'required|numeric|min:0',
+            'discount_amount' => 'required|numeric|min:0' . (
+                $request->input('discount_type') === 'PERCENT' ? '|max:100' : ''
+            ),
             'min_order_amount' => 'required|numeric|min:0',
             'is_active' => 'nullable|boolean',
             'valid_until' => 'required|date',
@@ -330,53 +334,6 @@ class AdminController extends Controller
 
         return redirect()->route('admin.promos')
             ->with('success', 'Promo berhasil dihapus.');
-    }
-
-    // ==================== PAYMENT VERIFICATION ====================
-    public function verifyPayment(Request $request, Payment $payment)
-    {
-        $validated = $request->validate([
-            'payment_status' => 'required|in:VERIFIED,REJECTED',
-            'admin_notes' => 'nullable|string|max:500',
-        ]);
-
-        if ($validated['payment_status'] === 'VERIFIED') {
-            $totalBill = $payment->order->total_amount;
-            $amountPaid = $payment->amount_paid;
-            $changeAmount = $amountPaid - $totalBill;
-
-            $payment->update([
-                'payment_status' => 'VERIFIED',
-                'change_amount' => $changeAmount > 0 ? $changeAmount : 0,
-                'admin_notes' => $validated['admin_notes'] ?? 'Pembayaran diverifikasi',
-                'verified_at' => now(),
-            ]);
-
-            if ($payment->order->status === 'MENUNGGU_KONFIRMASI') {
-                $payment->order->update(['status' => 'DIPROSES']);
-            }
-
-            return back()->with('success', 'Pembayaran diverifikasi! Kembalian: Rp ' . number_format($changeAmount > 0 ? $changeAmount : 0, 0, ',', '.'));
-        } else {
-            $payment->update([
-                'payment_status' => 'REJECTED',
-                'admin_notes' => $validated['admin_notes'] ?? 'Pembayaran ditolak',
-                'verified_at' => now(),
-            ]);
-
-            foreach ($payment->order->orderItems as $item) {
-                $product = Product::find($item->product_id);
-                if ($product) {
-                    $product->increment('stock', $item->quantity);
-                }
-            }
-            $payment->order->update([
-                'status' => 'DIBATALKAN',
-                'rejection_reason' => $validated['admin_notes'] ?? 'Pembayaran ditolak'
-            ]);
-
-            return back()->with('error', 'Pembayaran ditolak dan stok telah dikembalikan.');
-        }
     }
 
     // ==================== CONTACT & OUTLET ====================
@@ -467,7 +424,7 @@ class AdminController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:6',
+            'password' => 'required|string|min:12',
             'role' => 'required|in:ADMIN,OWNER',
         ]);
 
@@ -487,7 +444,7 @@ class AdminController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'role' => 'required|in:ADMIN,OWNER',
-            'password' => 'nullable|string|min:6',
+            'password' => 'nullable|string|min:12',
         ]);
 
         $user->name = $validated['name'];
@@ -525,7 +482,11 @@ class AdminController extends Controller
                     ->where('role', 'OWNER')
                     ->first();
 
-        if ($user && Hash::check($validated['password'], $user->password_hash)) {
+        if (
+            $user
+            && !$user->isUsingUnsafeSeedPassword($validated['password'])
+            && Hash::check($validated['password'], $user->password_hash)
+        ) {
             Auth::login($user);
             $request->session()->regenerate();
 
@@ -540,51 +501,88 @@ class AdminController extends Controller
     public function ownerDashboard()
     {
         $today = Carbon::today();
+        $yesterday = Carbon::yesterday();
 
-        $todayRevenue = Order::where('status', 'SELESAI')->whereDate('created_at', $today)->sum('total_amount');
+        $todayRevenue = (float) Order::where('status', 'SELESAI')->whereDate('created_at', $today)->sum('total_amount');
+        $yesterdayRevenue = (float) Order::where('status', 'SELESAI')->whereDate('created_at', $yesterday)->sum('total_amount');
         $todayOrders = Order::whereDate('created_at', $today)->count();
         $todayOrdersSuccess = Order::where('status', 'SELESAI')->whereDate('created_at', $today)->count();
-        $activeProducts = Product::where('is_active', true)->count();
-        $estimatedProfit = $todayRevenue * 0.40;
+        $todayOrdersCancelled = Order::where('status', 'DIBATALKAN')->whereDate('created_at', $today)->count();
+        $todayOrdersPending = max(0, $todayOrders - $todayOrdersSuccess - $todayOrdersCancelled);
+        $orderEfficiency = $todayOrders > 0 ? round(($todayOrdersSuccess / $todayOrders) * 100, 1) : 0;
 
+        $revenueGrowth = $yesterdayRevenue > 0
+            ? round((($todayRevenue - $yesterdayRevenue) / $yesterdayRevenue) * 100, 1)
+            : null;
+
+        $activeProducts = Product::where('is_active', true)->where('is_available', true)->count();
+        $availableProducts = Product::where('is_active', true)->where('is_available', true)->where('stock', '>', 20)->count();
+        $limitedProducts = Product::where('is_active', true)->where('is_available', true)->whereBetween('stock', [1, 20])->count();
+        $soldOutProducts = Product::where('is_active', true)->where(function ($query) {
+            $query->where('stock', '<=', 0)->orWhere('is_available', false);
+        })->count();
         $hourlySales = [];
+        $completedToday = Order::where('status', 'SELESAI')
+            ->whereDate('created_at', $today)
+            ->get(['created_at']);
         for ($hour = 9; $hour <= 21; $hour++) {
-            $hourlySales[$hour] = Order::where('status', 'SELESAI')
-                ->whereDate('created_at', $today)
-                ->whereRaw('HOUR(created_at) = ?', [$hour])
-                ->count();
+            $hourlySales[$hour] = $completedToday->filter(
+                fn ($order) => $order->created_at->format('G') == $hour
+            )->count();
         }
+        $maxHourlyVolume = max(1, max($hourlySales));
 
         $whatsappOrders = Order::whereDate('created_at', $today)->where('payment_method', 'COD')->count();
         $webOrders = Order::whereDate('created_at', $today)->where('payment_method', 'TRANSFER_BANK')->count();
         $onlineOrders = Order::whereDate('created_at', $today)->whereIn('payment_method', ['GOPAY', 'OVO', 'SHOPEEPAY', 'QRIS'])->count();
+        $channelTotal = $whatsappOrders + $webOrders + $onlineOrders;
+        $channelPercentages = [
+            'whatsapp' => $channelTotal > 0 ? round(($whatsappOrders / $channelTotal) * 100) : 0,
+            'web' => $channelTotal > 0 ? round(($webOrders / $channelTotal) * 100) : 0,
+            'online' => $channelTotal > 0 ? round(($onlineOrders / $channelTotal) * 100) : 0,
+        ];
 
-        $avgCookingTime = 11.8;
-        $customerSatisfaction = 4.9;
+        $completedDurations = Order::where('status', 'SELESAI')
+            ->whereDate('created_at', $today)
+            ->get(['created_at', 'updated_at'])
+            ->map(fn ($order) => max(0, $order->created_at->diffInMinutes($order->updated_at)));
+        $avgCookingTime = $completedDurations->count() > 0
+            ? round($completedDurations->average(), 1)
+            : null;
+        $customerSatisfaction = null;
 
-        $lowStockProducts = Product::where('stock', '<', 20)->where('is_active', true)->orderBy('stock')->limit(2)->get();
+        $lowStockProducts = Product::where('stock', '>', 0)
+            ->where('stock', '<=', 20)
+            ->where('is_active', true)
+            ->orderBy('stock')
+            ->limit(5)
+            ->get();
         $recentTransactions = Order::with(['orderItems.product'])->orderBy('created_at', 'desc')->limit(5)->get();
 
         return view('admin.owner.dashboard', compact(
-            'todayRevenue', 'todayOrders', 'todayOrdersSuccess', 'activeProducts', 'estimatedProfit',
-            'hourlySales', 'whatsappOrders', 'webOrders', 'onlineOrders', 'avgCookingTime',
-            'customerSatisfaction', 'lowStockProducts', 'recentTransactions'
+            'todayRevenue', 'yesterdayRevenue', 'revenueGrowth', 'todayOrders', 'todayOrdersSuccess',
+            'todayOrdersPending', 'todayOrdersCancelled', 'orderEfficiency', 'activeProducts',
+            'availableProducts', 'limitedProducts', 'soldOutProducts',
+            'hourlySales', 'maxHourlyVolume', 'whatsappOrders', 'webOrders', 'onlineOrders',
+            'channelPercentages', 'avgCookingTime', 'customerSatisfaction',
+            'lowStockProducts', 'recentTransactions'
         ));
     }
 
     public function ownerReports()
     {
-        $topVolume = \App\Models\OrderItem::select('product_id', DB::raw('SUM(quantity) as total_qty'))
+        $topVolume = \App\Models\OrderItem::whereHas('order', function ($query) {
+            $query->where('status', 'SELESAI');
+        })->select('product_id', DB::raw('SUM(quantity) as total_qty'))
             ->groupBy('product_id')->orderByDesc('total_qty')->limit(1)->with('product')->first();
 
-        $topMarginProduct = Product::where('is_active', true)->orderByDesc('price')->first();
-        $topMargin = 48.0;
+        $products = Product::withSum(['orderItems as total_sold' => function ($query) {
+            $query->whereHas('order', function ($orderQuery) {
+                $orderQuery->where('status', 'SELESAI');
+            });
+        }], 'quantity')->where('is_active', true)->orderByDesc('total_sold')->limit(5)->get();
 
-        $products = Product::withCount(['orderItems as total_sold' => function ($query) {
-            $query->select(DB::raw('count(*)'));
-        }])->where('is_active', true)->orderByDesc('total_sold')->limit(5)->get();
-
-        $totalRevenue = $products->sum(function ($p) { return $p->total_sold * $p->price; });
+        $totalRevenue = Order::where('status', 'SELESAI')->sum('total_amount');
 
         $totalOrders = Order::count();
         $successOrders = Order::where('status', 'SELESAI')->count();
@@ -592,11 +590,9 @@ class AdminController extends Controller
         $fulfillmentRate = $totalOrders > 0 ? round(($successOrders / $totalOrders) * 100, 1) : 0;
 
         $totalDiscount = Order::where('status', 'SELESAI')->sum('discount_amount');
-        $promoROI = 9.4;
-
         return view('admin.owner.reports', compact(
-            'topVolume', 'topMarginProduct', 'topMargin', 'products', 'totalRevenue',
-            'totalOrders', 'successOrders', 'cancelledOrders', 'fulfillmentRate', 'totalDiscount', 'promoROI'
+            'topVolume', 'products', 'totalRevenue', 'totalOrders', 'successOrders',
+            'cancelledOrders', 'fulfillmentRate', 'totalDiscount'
         ));
     }
 

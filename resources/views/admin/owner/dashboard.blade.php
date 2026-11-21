@@ -209,6 +209,38 @@
             color: var(--brown-dark);
             margin-bottom: 8px;
         }
+
+        .bar-track {
+            width: 100%;
+            max-width: 42px;
+            height: 150px;
+            margin: 0 auto 8px;
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .bar-track-inner {
+            width: 100%;
+            border-radius: 4px 4px 0 0;
+            min-height: 4px;
+        }
+
+        @media (max-width: 767.98px) {
+            .owner-sidebar {
+                min-height: auto;
+                border-right: 0;
+                border-bottom: 1px solid var(--border-color);
+            }
+            .owner-main {
+                padding: 16px;
+            }
+            .page-header {
+                padding: 18px;
+            }
+            .owner-topbar .row > div {
+                margin-bottom: 8px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -220,7 +252,7 @@
         // ✅ PERBAIKAN: Ambil logo dan pastikan tidak ada kata 'storage/'
         $logoUrl = $siteData['logo_url'] ?? null;
         if ($logoUrl) {
-            $logoUrl = str_replace('storage/', '', $logoUrl);
+            $logoUrl = trim(str_replace(['storage/', 'public/'], '', $logoUrl), '/');
         }
 
         $businessName = $siteData['business_name'] ?? 'DAPUR TH SANT';
@@ -322,15 +354,21 @@
                         <div class="kpi-card">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <div class="kpi-label mb-0">01. TOTAL OMSET HARI INI</div>
-                                <span class="badge-target">122.5% TARGET</span>
+                                @if(!is_null($revenueGrowth))
+                                    <span class="badge-target">{{ $revenueGrowth >= 0 ? '+' : '' }}{{ number_format($revenueGrowth, 1, ',', '.') }}%</span>
+                                @endif
                             </div>
                             <div class="kpi-value">Rp {{ number_format($todayRevenue, 0, ',', '.') }}</div>
                             <div class="kpi-sub">
-                                Kemarin: Rp {{ number_format($todayRevenue * 0.85, 0, ',', '.') }}
-                                <span class="text-success fw-bold">+18.4%</span>
+                                Kemarin: Rp {{ number_format($yesterdayRevenue, 0, ',', '.') }}
+                                @if(!is_null($revenueGrowth))
+                                    <span class="{{ $revenueGrowth >= 0 ? 'text-success' : 'text-danger' }} fw-bold">
+                                        {{ $revenueGrowth >= 0 ? '+' : '' }}{{ number_format($revenueGrowth, 1, ',', '.') }}%
+                                    </span>
+                                @endif
                             </div>
                             <small class="text-muted font-mono" style="font-size: 0.7rem; display: block; margin-top: 8px;">
-                                Target Harian: Rp 2.000.000 (Tercapai)
+                                Perbandingan dengan omset hari sebelumnya
                             </small>
                         </div>
                     </div>
@@ -340,10 +378,10 @@
                             <div class="kpi-label mb-2">02. ORDER MASUK & AGG: SELESAI</div>
                             <div class="kpi-value">{{ $todayOrders }} Pesanan</div>
                             <div class="kpi-sub">
-                                {{ $todayOrdersSuccess }} Selesai • {{ max(0, $todayOrders - $todayOrdersSuccess) }} Antre • 0 Dibatalkan
+                                {{ $todayOrdersSuccess }} Selesai • {{ $todayOrdersPending }} Diproses • {{ $todayOrdersCancelled }} Dibatalkan
                             </div>
                             <small class="text-muted font-mono" style="font-size: 0.7rem; display: block; margin-top: 8px;">
-                                Efisiensi Pesanan: <span class="text-success">100% Valid</span> [STABIL]
+                                Tingkat Penyelesaian: <span class="text-success">{{ number_format($orderEfficiency, 1, ',', '.') }}%</span>
                             </small>
                         </div>
                     </div>
@@ -352,12 +390,12 @@
                         <div class="kpi-card">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <div class="kpi-label mb-0">03. PRODUK ETALASE</div>
-                                <span class="badge-target">100% LIVE</span>
+                                <span class="badge-target">AKTIF</span>
                             </div>
                             <div class="kpi-value">{{ $activeProducts }} Menu Aktif</div>
-                            <div class="kpi-sub">14 Tersedia Aman • 2 Terbatas</div>
+                            <div class="kpi-sub">{{ $availableProducts }} Tersedia Aman • {{ $limitedProducts }} Stok Terbatas</div>
                             <small class="text-muted font-mono" style="font-size: 0.7rem; display: block; margin-top: 8px;">
-                                Menu Habis (Sold Out): 0 Menu [SIAP_SAJI]
+                                Menu Habis / Tidak Tersedia: {{ $soldOutProducts }} Menu
                             </small>
                         </div>
                     </div>
@@ -365,13 +403,13 @@
                     <div class="col-md-3">
                         <div class="kpi-card">
                             <div class="d-flex justify-content-between align-items-start mb-2">
-                                <div class="kpi-label mb-0">04. ESTIMASI LABA KOTOR</div>
-                                <span class="badge-target">MARGIN 40.2%</span>
+                                <div class="kpi-label mb-0">04. LABA KOTOR</div>
+                                <span class="badge-target">BELUM TERSEDIA</span>
                             </div>
-                            <div class="kpi-value">Rp {{ number_format($estimatedProfit, 0, ',', '.') }}</div>
-                            <div class="kpi-sub">Bahan Baku & Packaging: Rp {{ number_format($todayRevenue * 0.60, 0, ',', '.') }}</div>
+                            <div class="kpi-value">Belum dapat dihitung</div>
+                            <div class="kpi-sub">Catat harga pokok produk untuk menghitung laba.</div>
                             <small class="text-muted font-mono" style="font-size: 0.7rem; display: block; margin-top: 8px;">
-                                Target Laba Harian: Rp 800K <span class="text-success">[+25.1%]</span>
+                                Omzet bukan laba; biaya produk belum tersedia.
                             </small>
                         </div>
                     </div>
@@ -404,7 +442,9 @@
                             <div class="d-flex align-items-end justify-content-between" style="height: 200px; padding: 0 10px;">
                                 @foreach($hourlySales as $hour => $count)
                                 <div class="text-center" style="flex: 1;">
-                                    <div style="height: {{ min($count * 40, 100) }}%; background: {{ $count >= 5 ? 'var(--brown-dark)' : 'var(--cream-dark)' }}; border-radius: 4px 4px 0 0; margin-bottom: 8px; min-height: 4px;"></div>
+                                    <div class="bar-track">
+                                        <div class="bar-track-inner" style="height: {{ $count > 0 ? max(8, round(($count / $maxHourlyVolume) * 100)) : 0 }}%; background: {{ $count >= max(5, $maxHourlyVolume * 0.7) ? 'var(--brown-dark)' : 'var(--cream-dark)' }};"></div>
+                                    </div>
                                     <small class="font-mono" style="font-size: 0.7rem; color: var(--text-muted);">{{ $hour }}</small>
                                     <div class="font-mono fw-bold" style="font-size: 0.75rem; color: var(--brown-dark);">{{ $count }}</div>
                                 </div>
@@ -422,7 +462,7 @@
                         </div>
                     </div>
 
-                    <div class="col-md-4">
+                    <div class="col-md-12">
                         <div class="chart-container">
                             <div class="font-mono" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; margin-bottom: 16px;">
                                 Diagnostik Real-time
@@ -432,17 +472,19 @@
                             <div class="mb-4">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <span class="text-muted" style="font-size: 0.85rem;">Rata-rata Durasi Masak (SLA)</span>
-                                    <span class="fw-bold" style="font-size: 1.2rem; color: var(--brown-dark);">{{ $avgCookingTime }} Menit</span>
+                                    <span class="fw-bold" style="font-size: 1.2rem; color: var(--brown-dark);">
+                                        {{ is_null($avgCookingTime) ? '-' : number_format($avgCookingTime, 1, ',', '.') . ' Menit' }}
+                                    </span>
                                 </div>
-                                <small class="text-muted">Standar SLA Dapur: < 15 Menit / Pesanan</small>
+                                <small class="text-muted">Standar SLA Dapur: &lt; 15 Menit / Pesanan</small>
                             </div>
 
                             <div class="mb-4">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <span class="text-muted" style="font-size: 0.85rem;">Kepuasan Pelanggan</span>
-                                    <span class="fw-bold" style="font-size: 1.2rem; color: var(--brown-dark);">{{ $customerSatisfaction }} / 5.0</span>
+                                    <span class="fw-bold" style="font-size: 1.2rem; color: var(--brown-dark);">Belum Tersedia</span>
                                 </div>
-                                <small class="text-muted">Berdasarkan {{ rand(100, 200) }} Ulasan Masuk (98.2% Puas)</small>
+                                <small class="text-muted">Belum ada data ulasan pelanggan yang terintegrasi</small>
                             </div>
 
                             <div class="alert-box" style="background: var(--green-bg); border-left-color: var(--green-stock);">
@@ -476,7 +518,7 @@
                                     </span>
                                 </div>
                                 <small class="text-muted" style="font-size: 0.8rem;">
-                                    Tingkat permintaan tinggi. Proyeksi habis dalam 1.5 jam mendatang.
+                                    Stok tersisa {{ $product->stock }} porsi. Segera lakukan restok.
                                 </small>
                             </div>
                             @endforeach
@@ -487,7 +529,7 @@
 
                 <!-- Distribution & Efficiency -->
                 <div class="row g-4 mb-4">
-                    <div class="col-md-8">
+                    <div class="col-md-12">
                         <div class="chart-container">
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <div>
@@ -498,7 +540,7 @@
                                 </div>
                                 <div class="text-end">
                                     <small class="font-mono" style="font-size: 0.75rem; color: var(--text-muted);">
-                                        MANDIRI: 85% • OJEK ONLINE: 15%
+                                        MANDIRI: {{ $channelPercentages['whatsapp'] + $channelPercentages['web'] }}% • OJEK ONLINE: {{ $channelPercentages['online'] }}%
                                     </small>
                                 </div>
                             </div>
@@ -508,7 +550,7 @@
                                     <div class="p-3" style="background: var(--cream-light); border-radius: 8px;">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <strong style="font-size: 0.9rem;">WHATSAPP DAPUR LANGSUNG</strong>
-                                            <span class="badge" style="background: var(--brown-dark); color: white;">45%</span>
+                                            <span class="badge" style="background: var(--brown-dark); color: white;">{{ $channelPercentages['whatsapp'] }}%</span>
                                         </div>
                                         <div class="kpi-value" style="font-size: 1.5rem;">{{ $whatsappOrders }} Order</div>
                                         <small class="text-muted">Biaya Komisi: 0% (Rp 0)</small>
@@ -519,7 +561,7 @@
                                     <div class="p-3" style="background: var(--cream-light); border-radius: 8px;">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <strong style="font-size: 0.9rem;">WEB KATALOG MANDIRI</strong>
-                                            <span class="badge" style="background: var(--brown-dark); color: white;">40%</span>
+                                            <span class="badge" style="background: var(--brown-dark); color: white;">{{ $channelPercentages['web'] }}%</span>
                                         </div>
                                         <div class="kpi-value" style="font-size: 1.5rem;">{{ $webOrders }} Order</div>
                                         <small class="text-muted">Biaya Komisi: 0% (Rp 0)</small>
@@ -530,7 +572,7 @@
                                     <div class="p-3" style="background: var(--cream-light); border-radius: 8px;">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <strong style="font-size: 0.9rem;">GRABFOOD & GOFOOD</strong>
-                                            <span class="badge" style="background: var(--brown-dark); color: white;">15%</span>
+                                            <span class="badge" style="background: var(--brown-dark); color: white;">{{ $channelPercentages['online'] }}%</span>
                                         </div>
                                         <div class="kpi-value" style="font-size: 1.5rem;">{{ $onlineOrders }} Order</div>
                                         <small class="text-muted">Biaya Komisi: 20% MDR</small>
@@ -552,7 +594,7 @@
                         </div>
                     </div>
 
-                    <div class="col-md-4">
+                    <div class="col-md-12">
                         <div class="chart-container">
                             <div class="font-mono" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; margin-bottom: 16px;">
                                 Audit Log Terkini
@@ -579,7 +621,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @if(isset($recentTransactions))
+                                        @if(isset($recentTransactions) && $recentTransactions->count() > 0)
                                             @foreach($recentTransactions as $txn)
                                             <tr>
                                                 <td class="font-mono" style="font-size: 0.75rem;">{{ $txn->created_at->format('H:i') }}</td>
@@ -613,6 +655,10 @@
                                                 </td>
                                             </tr>
                                             @endforeach
+                                        @else
+                                            <tr>
+                                                <td colspan="7" class="text-center text-muted py-4">Belum ada transaksi yang tercatat.</td>
+                                            </tr>
                                         @endif
                                     </tbody>
                                 </table>

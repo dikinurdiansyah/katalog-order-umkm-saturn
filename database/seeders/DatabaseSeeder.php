@@ -9,31 +9,56 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // ===== 1. USERS (Admin & Owner) =====
-        User::updateOrCreate(
-            ['email' => 'admin@umkm.com'],
-            [
-                'name' => 'Admin Dapur',
-                'password_hash' => Hash::make('password'),
-                'role' => 'ADMIN',
-                'phone_number' => '081234567890',
-            ]
-        );
+        if (!app()->environment(['local', 'testing'])) {
+            $adminEmail = env('INITIAL_ADMIN_EMAIL');
+            $adminPassword = env('INITIAL_ADMIN_PASSWORD');
 
-        User::updateOrCreate(
-            ['email' => 'owner@umkm.com'],
-            [
-                'name' => 'Owner Dapur',
-                'password_hash' => Hash::make('password'),
-                'role' => 'OWNER',
-                'phone_number' => '081234567891',
-            ]
-        );
+            if (blank($adminEmail) || blank($adminPassword)) {
+                if (!User::where('role', 'ADMIN')->exists()) {
+                    throw new RuntimeException(
+                        'Set INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD before seeding the first production admin.'
+                    );
+                }
+            } else {
+                if (strlen($adminPassword) < 12) {
+                    throw new RuntimeException('INITIAL_ADMIN_PASSWORD must contain at least 12 characters.');
+                }
+
+                $admin = User::firstOrCreate(
+                    ['email' => $adminEmail],
+                    [
+                        'name' => 'Admin Dapur',
+                        'password_hash' => Hash::make($adminPassword),
+                        'role' => 'ADMIN',
+                        'phone_number' => null,
+                    ]
+                );
+
+                if (!$admin->isAdmin()) {
+                    throw new RuntimeException('INITIAL_ADMIN_EMAIL is already assigned to a non-admin account.');
+                }
+            }
+        } else {
+            User::updateOrCreate(
+                ['email' => 'admin@umkm.com'],
+                [
+                    'name' => 'Admin Dapur (Local)',
+                    'password_hash' => Hash::make('password'),
+                    'role' => 'ADMIN',
+                ]
+            );
+        }
+
+        $this->call(UserSeeder::class);
+        if (!app()->environment(['local', 'testing'])) {
+            return;
+        }
 
         // ===== 2. CATEGORIES (Spesifik Dimsum) =====
         $dimsumKukus = Category::firstOrCreate(['name' => 'Dimsum Kukus'], ['slug' => 'dimsum-kukus']);

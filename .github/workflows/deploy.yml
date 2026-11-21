@@ -1,0 +1,57 @@
+name: CI/CD Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - utama
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Verify Dockerfile
+        run: test -f Dockerfile
+
+      - name: Build Docker image
+        run: docker build -t ukk-app-test:latest .
+
+  detect-coolify-webhook:
+    name: Check Coolify webhook
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.detect.outputs.enabled }}
+    steps:
+      - name: Detect optional webhook secret
+        id: detect
+        env:
+          COOLIFY_WEBHOOK_URL: ${{ secrets.COOLIFY_WEBHOOK_URL }}
+        shell: bash
+        run: |
+          if [ -n "$COOLIFY_WEBHOOK_URL" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "COOLIFY_WEBHOOK_URL is not set; skipping deployment."
+          fi
+
+  deploy-coolify:
+    name: Trigger Coolify deployment
+    needs:
+      - build-and-test
+      - detect-coolify-webhook
+    if: needs.detect-coolify-webhook.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deployment
+        env:
+          COOLIFY_WEBHOOK_URL: ${{ secrets.COOLIFY_WEBHOOK_URL }}
+        run: curl --fail --silent --show-error --max-time 30 --request GET "$COOLIFY_WEBHOOK_URL"

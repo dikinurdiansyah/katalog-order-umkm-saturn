@@ -1,12 +1,3 @@
-Berikut adalah file `README.md` yang sudah **100% disesuaikan** dengan proyek **Dapur Th Sant** (Sistem Katalog & Pemesanan Makanan UMKM). 
-
-Saya telah mengubah semua referensi "FixPoint/Laptop" menjadi konteks "Makanan/Pemesanan", menyesuaikan nama tabel, fitur, dan alur kerja agar sesuai dengan proyek kamu. 
-
-Tinggal **Copy** dan **Paste** langsung ke file `README.md` di root repository kamu.
-
----
-
-```markdown
 # Dapur Th Sant
 
 <p align="center">
@@ -17,7 +8,7 @@ Tinggal **Copy** dan **Paste** langsung ke file `README.md` di root repository k
 <p align="center"><strong>Sistem Informasi Katalog & Pemesanan Makanan UMKM</strong></p>
 
 <p align="center">
-  Laravel 11 &bull; PHP 8.2+ &bull; MySQL &bull; Blade &bull; Tailwind CSS
+  Laravel 12 &bull; PHP 8.2+ &bull; MySQL &bull; Blade &bull; Tailwind CSS
 </p>
 
 ---
@@ -46,6 +37,7 @@ Tinggal **Copy** dan **Paste** langsung ke file `README.md` di root repository k
 20. [Tim Pengembang](#20-tim-pengembang)
 21. [Struktur Dokumentasi](#21-struktur-dokumentasi)
 22. [Status Deployment](#22-status-deployment)
+23. [Deployment dengan Docker](#23-deployment-dengan-docker)
 
 ---
 
@@ -83,7 +75,6 @@ Dapur Th Sant menyatukan seluruh catatan tersebut dalam satu basis data terpusat
 | Keranjang Belanja | Menambah, mengurangi, atau menghapus item sebelum checkout |
 | Checkout & Pembayaran | Formulir data diri singkat, pilihan metode pembayaran, dan unggah bukti transfer (JPG/PNG/WEBP, maks 2 MB) |
 | Cek Status Order | Mencari status pesanan berdasarkan Order ID unik |
-| Pembatalan | Pembatalan pesanan oleh pelanggan (dengan syarat tertentu) |
 
 ### Panel Admin
 | Fitur | Keterangan |
@@ -92,14 +83,15 @@ Dapur Th Sant menyatukan seluruh catatan tersebut dalam satu basis data terpusat
 | Kelola Produk | CRUD menu makanan, pengaturan stok, dan aktif/nonaktifkan menu |
 | Kelola Pesanan | Menerima pesanan, memverifikasi bukti bayar, mengubah status (Diproses -> Selesai) |
 | Cetak Struk | Generate struk pesanan siap cetak setelah pembayaran diverifikasi |
-| Laporan Penjualan | Filter rentang tanggal, pencarian, dan ekspor laporan ke PDF/Excel |
+| Laporan Penjualan | Rekap penjualan pesanan selesai dan ekspor laporan ke CSV |
 
 ## 5. Aktor dan Hak Akses
 
 | Aktor | Login | Hak akses |
 | --- | --- | --- |
 | Pelanggan | Tidak (Guest) | Lihat katalog, keranjang, checkout, unggah bukti, cek status via Order ID |
-| Admin | Ya (`role = ADMIN`) | Seluruh operasional, data master produk, verifikasi pembayaran, laporan, cetak struk |
+| Admin | Ya (`role = ADMIN`) | Operasional, data master produk, verifikasi pembayaran, dan cetak struk |
+| Owner | Ya (`role = OWNER`) | Dashboard dan laporan penjualan |
 
 Pembatasan hak akses dijalankan middleware `role` (`app/Http/Middleware/RoleMiddleware.php`).
 
@@ -108,11 +100,10 @@ Pembatasan hak akses dijalankan middleware `role` (`app/Http/Middleware/RoleMidd
 | Komponen | Versi | Sumber |
 | --- | --- | --- |
 | PHP | `^8.2` | `composer.json` |
-| Laravel Framework | `^11.0` | `composer.json` |
+| Laravel Framework | `^12.0` | `composer.json` |
 | MySQL / MariaDB | Database `dapur_th_sant` | `.env`, migration |
 | Blade | Template engine bawaan Laravel | `resources/views` |
-| barryvdh/laravel-dompdf | `^2.0` | Ekspor PDF laporan & struk |
-| PHPUnit | `^10.5` | Pengujian otomatis |
+| PHPUnit | `^11.5` | Pengujian otomatis |
 | Composer | 2.x | `composer -V` |
 
 *Catatan: Aplikasi ini menggunakan CDN untuk styling (Tailwind/Bootstrap) atau build Vite minimal, sehingga tidak mewajibkan `npm run build` untuk deployment dasar.*
@@ -146,7 +137,6 @@ dapur-th-sant/
 │   ├── Http/Controllers/          ProductController, OrderController, AdminController
 │   ├── Http/Middleware/           RoleMiddleware
 │   ├── Models/                    Product, Order, OrderItem, Payment, User
-│   └── Support/                   Helper untuk generate PDF/Excel
 ├── bootstrap/app.php              Routing, alias middleware, exception handler
 ├── config/                        Konfigurasi Laravel
 ├── database/
@@ -156,7 +146,7 @@ dapur-th-sant/
 ├── public/                        Document root: index.php, .htaccess, images
 ├── resources/views/               Seluruh tampilan Blade
 ├── routes/                        web.php, api.php
-├── storage/                       Log, cache, dan unggahan (app/public)
+├── storage/                       Log, cache, bukti bayar privat (app/private), aset publik
 ├── tests/                         Pengujian fitur dan unit
 ├── artisan
 ├── composer.json
@@ -211,6 +201,8 @@ FILESYSTEM_DISK=local
 ```
 *Penting: Gunakan `SESSION_DRIVER=file` dan `CACHE_STORE=file` agar tidak error jika tabel `sessions` atau `cache` belum di-migrate.*
 
+Untuk seed akun awal di production, set `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD`, `INITIAL_OWNER_EMAIL`, dan `INITIAL_OWNER_PASSWORD` di environment server. Gunakan kata sandi unik dan kuat; jangan simpan nilainya di repository. Pendaftaran publik dinonaktifkan.
+
 ## 12. Konfigurasi Database
 
 ```sql
@@ -235,9 +227,9 @@ Menjalankan migration untuk tabel: `users`, `products`, `orders`, `order_items`,
 ```bash
 php artisan db:seed
 ```
-`DatabaseSeeder` akan membuat:
-- Akun Admin default.
-- Beberapa data produk contoh (Dimsum, Bolu, dll) untuk keperluan pengujian.
+Pada environment `local`/`testing`, `DatabaseSeeder` membuat akun lokal dan data katalog contoh. Di environment lain, seeder tidak membuat katalog dummy; akun awal memerlukan `INITIAL_ADMIN_*` dan `INITIAL_OWNER_*` di environment server.
+
+Jika database production sudah memiliki akun demo lama, login dengan password demo ditolak. Seeder tidak mereset akun yang emailnya sudah ada; siapkan email baru dan kredensial unik minimal 12 karakter melalui variabel `INITIAL_ADMIN_*`/`INITIAL_OWNER_*`, jalankan `php artisan db:seed`, lalu nonaktifkan akun demo lama.
 
 ## 15. Build Asset
 
@@ -246,7 +238,6 @@ Jika proyek menggunakan Vite untuk compile CSS/JS, jalankan:
 npm install
 npm run build
 ```
-*(Jika menggunakan CDN untuk Tailwind/Bootstrap, langkah ini dapat dilewati).*
 
 ## 16. Menjalankan Aplikasi
 
@@ -254,7 +245,7 @@ npm run build
 php artisan storage:link
 php artisan serve
 ```
-Buka `http://127.0.0.1:8000`. Perintah `storage:link` diperlukan agar berkas bukti pembayaran dapat diakses dari browser.
+Buka `http://127.0.0.1:8000`. Perintah `storage:link` menyiapkan akses gambar produk/logo publik. Bukti pembayaran disimpan privat dan hanya dapat dilihat admin yang login.
 
 ### Mode offline (tanpa internet)
 ```bash
@@ -269,9 +260,10 @@ Akun berikut **hanya untuk pengembangan lokal** dan dibuat oleh `DatabaseSeeder`
 | Email | Role | Password |
 | --- | --- | --- |
 | `admin@umkm.com` | ADMIN | `password` |
-| `owner@umkm.com` | owner | `password` |
+| `owner@umkm.com` | OWNER | `password123` |
 
 *Catatan: Pelanggan tidak memerlukan akun untuk melakukan pemesanan (Guest Checkout).*
+*Akun lokal di atas tidak boleh digunakan pada production. Jika akun default pernah dibuat di server production, ganti kata sandinya atau nonaktifkan sebelum rilis.*
 
 ## 18. Pengujian Otomatis
 
@@ -311,15 +303,83 @@ docs/
 
 ## 22. Status Deployment
 
-**Status:** Siap untuk Deployment / Sudah di-deploy ke [ArenHost / Railway / InfinityFree].
-Aplikasi telah dioptimalkan untuk production (`composer install --no-dev --optimize-autoloader`, `php artisan optimize`). Prosedur unggah dan konfigurasi production tersedia di folder `docs/02-deployment/`.
+**Status:** Belum diverifikasi pada server production.
 
----
+Sebelum rilis, pastikan `APP_ENV=production`, `APP_DEBUG=false`, HTTPS aktif, `APP_KEY` unik, kredensial disimpan di environment server (bukan repository), dan backup database serta file private diuji. Pindahkan `public/receipts` dan `storage/app/public/receipts` ke `storage/app/private/receipts`, serta `storage/app/public/bukti_pembayaran` ke `storage/app/private/bukti_pembayaran`; pertahankan nama file agar referensi di database tetap berlaku.
+
+Jika bukti pembayaran pernah di-commit atau dikirim ke repository bersama, penghapusan di commit terbaru tidak menghapus riwayat Git. Bersihkan riwayat secara terencana dan perlakukan bukti tersebut sebagai data yang mungkin sudah terekspos.
+
+## 23. Deployment Docker & Coolify (Workshop 2026/2027)
+
+Dockerfile menggunakan PHP 8.2 + Apache sesuai job sheet, dan membangun asset Vite. Untuk Tugas 1, image memakai SQLite sementara di dalam container sehingga bisa diuji dengan perintah `docker run` tunggal. Untuk deployment Coolify, gunakan database MySQL/MariaDB yang disediakan Coolify dan isi environment variables produksi.
+
+### Tugas 1: build dan uji lokal
+
+Jalankan dari root proyek setelah Docker Desktop aktif:
+
+```bash
+docker build -t ukk-rpl-tim-xx:v1 .
+docker images
+docker run --rm ukk-rpl-tim-xx:v1 php artisan key:generate --show
 ```
 
-### 💡 Tips Sebelum Push:
-1. Ganti `[Diki Nurdiansyah]` dan `[Fauzan Aufaa]` dengan nama asli kalian.
-2. Ganti `https://github.com/dikinurdiansyah/katalog-order-umkm-saturn.git` dengan link repository GitHub kamu yang sebenarnya.
-3. Pastikan folder `public/images/` ada dan berisi file `logo.png` (atau hapus bagian `<img>` di bagian atas jika belum ada logo).
-4. File ini sudah sangat rapi dan memenuhi standar dokumentasi Sprint 4 UKK RPL. 
+Salin nilai `APP_KEY` yang dicetak. Jalankan container dengan key tersebut:
+
+```bash
+docker run -d -p 8080:80 --name app-tim-xx -e APP_KEY="base64:ISI_KEY_DI_SINI" ukk-rpl-tim-xx:v1
+docker ps
+docker logs app-tim-xx
+```
+
+Buka `http://localhost:8080`, lalu ambil screenshot aplikasi dan hasil `docker ps`. Untuk menghentikan serta menghapus container setelah pengujian:
+
+```bash
+docker stop app-tim-xx
+docker rm app-tim-xx
+```
+
+SQLite pada Tugas 1 bersifat sementara dan tidak untuk produksi. Jangan memakai nama container yang sama jika container sebelumnya masih ada.
+
+### Tugas 2: deploy di Coolify
+
+1. Buat Project di Coolify, lalu buat dan jalankan database MySQL/MariaDB.
+2. Tambahkan repository GitHub sebagai aplikasi, pilih branch yang digunakan tim (`main` sesuai job sheet; branch lokal saat ini bernama `utama`), dan Build Pack `Dockerfile`. Branch Coolify dan branch yang menerima push harus sama.
+3. Masukkan environment variables berikut di konfigurasi aplikasi Coolify (gunakan hostname internal database yang diberikan Coolify):
+
+   ```env
+   APP_NAME="Dapur Th Sant"
+   APP_ENV=production
+   APP_DEBUG=false
+   APP_KEY=base64:IsiDenganAppKeyYangDibuat
+   APP_URL=https://domain-yang-diberikan-sekolah
+   DB_CONNECTION=mysql
+   DB_HOST=hostname-internal-database-coolify
+   DB_PORT=3306
+   DB_DATABASE=nama_database
+   DB_USERNAME=user_database
+   DB_PASSWORD=password_database
+   SESSION_DRIVER=file
+   CACHE_STORE=file
+   QUEUE_CONNECTION=sync
+   FILESYSTEM_DISK=local
+   ```
+
+4. Atur domain pada Coolify sesuai alamat dari sekolah, lalu Deploy. Setelah container berjalan, buka terminal aplikasi Coolify dan jalankan:
+
+   ```bash
+   php artisan migrate --force
+   ```
+
+   `storage:link` sudah dibuat saat image dibangun. Minta instruktur menyiapkan persistent storage untuk `/var/www/html/storage` agar upload tidak hilang saat redeploy.
+5. Jalankan `php artisan db:seed --force` hanya jika kredensial akun awal sudah disiapkan sesuai bagian Seeder. Jangan gunakan akun demo sebagai akun produksi.
+
+### Tugas 3: CI/CD
+
+Workflow tersedia di `.github/workflows/deploy.yml` dan berjalan saat ada push ke branch `main` (sesuai job sheet) atau `utama` (nama branch lokal saat ini). Workflow membangun image untuk memeriksa Dockerfile. Agar job deploy ikut berjalan, tambahkan secret repository bernama `COOLIFY_WEBHOOK_URL` berisi webhook dari aplikasi Coolify (Settings → Secrets and variables → Actions). Tanpa secret tersebut, job build tetap berjalan dan deployment dilewati. Dengan jalur Coolify ini, secret SSH `VPS_HOST`, `VPS_USERNAME`, dan `VPS_SSH_KEY` tidak diperlukan.
+
+`docker-compose.yml` disediakan hanya sebagai opsi menjalankan aplikasi dan MariaDB bersama di komputer sendiri; itu bukan jalur deployment workshop. Jalur workshop tetap build Dockerfile lokal, lalu deploy repository melalui Coolify.
+
+Jangan commit `.env`, `.env.docker`, `APP_KEY`, atau kredensial database. Simpan semua secret produksi hanya di pengaturan Coolify/GitHub Secrets.
+
+---
 

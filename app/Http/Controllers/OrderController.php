@@ -10,8 +10,10 @@ use App\Models\Promo;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\File\Exception\FileException;
+use DomainException;
+use Throwable;
 
 class OrderController extends Controller
 {
@@ -153,6 +155,7 @@ class OrderController extends Controller
         if (empty($cart)) {
             return back()->with('error', 'Keranjang kosong.');
         }
+        ksort($cart);
 
         $validated = $request->validate([
             'customer_name' => 'required|string|max:255',
@@ -176,7 +179,12 @@ class OrderController extends Controller
 
             $promo = null;
             if (!empty($validated['promo_code'])) {
-                $promo = Promo::where('code', strtoupper(trim($validated['promo_code'])))->first();
+                $promo = Promo::where('code', strtoupper(trim($validated['promo_code'])))
+                    ->lockForUpdate()
+                    ->first();
+                if (!$promo) {
+                    throw new DomainException('Kode promo tidak valid atau sudah kedaluwarsa.');
+                }
 
                 $isPromoValid = true;
                 if (method_exists($promo, 'isValid')) {
@@ -185,19 +193,8 @@ class OrderController extends Controller
                     $isPromoValid = $promo->is_active && (!$promo->valid_until || $promo->valid_until >= now()->toDateString());
                 }
 
-                if (!$promo || !$isPromoValid) {
-                    throw new \Exception('Kode promo tidak valid atau sudah kedaluwarsa.');
-                }
-
-                $subtotalTemp = 0;
-                foreach ($cart as $productId => $item) {
-                    $product = Product::find($productId);
-                    if ($product) {
-                        $subtotalTemp += $product->price * $item['quantity'];
-                    }
-                }
-                if ($promo->min_order_amount && $subtotalTemp < $promo->min_order_amount) {
-                    throw new \Exception("Minimum order untuk promo ini adalah Rp " . number_format($promo->min_order_amount, 0, ',', '.'));
+                if (!$isPromoValid) {
+                    throw new DomainException('Kode promo tidak valid atau sudah kedaluwarsa.');
                 }
             }
 
@@ -218,14 +215,14 @@ class OrderController extends Controller
 
             $subtotal = 0;
             foreach ($cart as $productId => $item) {
-                $product = Product::findOrFail($productId);
+                $product = Product::whereKey($productId)->lockForUpdate()->firstOrFail();
 
                 if (!$product->is_active || !$product->is_available) {
-                    throw new \Exception("Produk {$product->name} sedang habis dan tidak dapat dipesan.");
+                    throw new DomainException("Produk {$product->name} sedang habis dan tidak dapat dipesan.");
                 }
 
                 if ($product->stock < $item['quantity']) {
-                    throw new \Exception("Stok {$product->name} tidak mencukupi. Tersedia: {$product->stock}");
+                    throw new DomainException("Stok {$product->name} tidak mencukupi. Tersedia: {$product->stock}");
                 }
 
                 $itemSubtotal = $product->price * $item['quantity'];
@@ -240,6 +237,10 @@ class OrderController extends Controller
                 ]);
 
                 $product->decrement('stock', $item['quantity']);
+            }
+
+            if ($promo && $subtotal < $promo->min_order_amount) {
+                throw new DomainException("Minimum order untuk promo ini adalah Rp " . number_format($promo->min_order_amount, 0, ',', '.'));
             }
 
             // ✅ Hitung ongkir dinamis berdasarkan desa yang dipilih (Area Ciwidey)
@@ -288,11 +289,17 @@ class OrderController extends Controller
 
             DB::commit();
 
-            return redirect()->route('orders.success', $order);
+            return redirect()->route('orders.success', ['order_ref' => $order->order_ref]);
 
-        } catch (\Exception $e) {
+        } catch (DomainException $e) {
             DB::rollBack();
             return back()->with('error', $e->getMessage())->withInput();
+        } catch (Throwable $e) {
+            DB::rollBack();
+            report($e);
+
+            return back()->with('error', 'Pesanan gagal diproses. Silakan coba lagi atau hubungi admin.')
+                ->withInput();
         }
     }
 
@@ -343,9 +350,11 @@ class OrderController extends Controller
         $filename = basename($relativePath);
         $candidates = match (true) {
             str_starts_with($relativePath, 'bukti_pembayaran/') => [
+                Storage::disk('local')->path($relativePath),
                 storage_path('app/public/bukti_pembayaran/' . $filename),
             ],
             str_starts_with($relativePath, 'receipts/') => [
+                Storage::disk('local')->path($relativePath),
                 public_path('receipts/' . $filename),
                 storage_path('app/public/receipts/' . $filename),
             ],
@@ -466,10 +475,19 @@ class OrderController extends Controller
     // ==========================================
     // ✅ CUSTOMER: Upload Bukti Pembayaran (Di Halaman Success)
     // ==========================================
-    public function uploadBukti(Request $request, Order $order)
+    public function uploadBukti(Request $request, string $order_ref)
     {
+        $order = Order::where('order_ref', strtoupper(trim($order_ref)))->firstOrFail();
+
         if ($order->payment_method === 'COD' || $order->metode_pembayaran === 'Tunai') {
             return back()->with('error', 'Pembayaran tunai tidak memerlukan upload bukti transfer.');
+        }
+
+        if (
+            $order->status !== 'MENUNGGU_KONFIRMASI'
+            || ($order->payment && $order->payment->payment_status !== 'REJECTED')
+        ) {
+            return back()->with('error', 'Pesanan ini tidak dapat menerima bukti pembayaran baru.');
         }
 
         $request->validate([
@@ -504,41 +522,59 @@ class OrderController extends Controller
         }
 
         $filename = Str::uuid()->toString() . '.' . $extension;
-        $directory = storage_path('app/public/bukti_pembayaran');
-        $destination = $directory . DIRECTORY_SEPARATOR . $filename;
-        try {
-            $file->move($directory, $filename);
-        } catch (FileException $e) {
-            report($e);
-
+        $path = $file->storeAs('receipts', $filename, 'local');
+        if ($path === false) {
             return back()->with('error', 'Bukti pembayaran gagal disimpan. Silakan coba lagi.');
         }
-        $path = 'bukti_pembayaran/' . $filename;
 
+        $oldReceiptPath = null;
         try {
-            DB::transaction(function () use ($order, $path) {
-                $payment = $order->payment;
+            $saved = DB::transaction(function () use ($order, $path, &$oldReceiptPath) {
+                $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+                $payment = $lockedOrder->payment()->lockForUpdate()->first();
+
+                if (
+                    $lockedOrder->status !== 'MENUNGGU_KONFIRMASI'
+                    || ($payment && $payment->payment_status !== 'REJECTED')
+                ) {
+                    return false;
+                }
+
+                $oldReceiptPath = $payment?->receipt_image_path;
 
                 if ($payment) {
                     $payment->update([
                         'receipt_image_path' => $path,
                         'payment_status' => 'PENDING_REVIEW',
-                        'amount_paid' => $order->total_amount,
+                        'amount_paid' => $lockedOrder->total_amount,
                         'admin_notes' => 'Menunggu verifikasi admin',
+                        'verified_at' => null,
+                        'change_amount' => 0,
                     ]);
                 } else {
                     Payment::create([
-                        'order_id' => $order->id,
+                        'order_id' => $lockedOrder->id,
                         'receipt_image_path' => $path,
                         'payment_status' => 'PENDING_REVIEW',
-                        'amount_paid' => $order->total_amount,
+                        'amount_paid' => $lockedOrder->total_amount,
                         'admin_notes' => 'Menunggu verifikasi admin',
                     ]);
                 }
+
+                return true;
             });
 
+            if (!$saved) {
+                if (!Storage::disk('local')->delete($path)) {
+                    logger()->warning('Could not remove receipt after payment changed during upload.', [
+                        'path' => $path,
+                    ]);
+                }
+
+                return back()->with('error', 'Pesanan ini tidak dapat menerima bukti pembayaran baru.');
+            }
         } catch (QueryException $e) {
-            if (is_file($destination) && !unlink($destination)) {
+            if (!Storage::disk('local')->delete($path)) {
                 logger()->warning('Could not remove uploaded receipt after payment save failed.', [
                     'path' => $path,
                 ]);
@@ -548,7 +584,38 @@ class OrderController extends Controller
             return back()->with('error', 'Bukti pembayaran gagal disimpan. Silakan coba lagi atau hubungi admin.');
         }
 
-        return redirect()->route('orders.status.show', $order->id)
+        if ($oldReceiptPath && str_starts_with($oldReceiptPath, 'receipts/')) {
+            foreach (['local', 'public'] as $disk) {
+                if (
+                    Storage::disk($disk)->exists($oldReceiptPath)
+                    && !Storage::disk($disk)->delete($oldReceiptPath)
+                ) {
+                    logger()->warning('Could not remove replaced payment receipt.', [
+                        'disk' => $disk,
+                        'path' => $oldReceiptPath,
+                    ]);
+                }
+            }
+
+            $legacyPath = public_path('receipts/' . basename($oldReceiptPath));
+            if (is_file($legacyPath) && !unlink($legacyPath)) {
+                logger()->warning('Could not remove legacy public receipt.', ['path' => $oldReceiptPath]);
+            }
+        } elseif ($oldReceiptPath && str_starts_with($oldReceiptPath, 'bukti_pembayaran/')) {
+            foreach (['local', 'public'] as $disk) {
+                if (
+                    Storage::disk($disk)->exists($oldReceiptPath)
+                    && !Storage::disk($disk)->delete($oldReceiptPath)
+                ) {
+                    logger()->warning('Could not remove replaced payment receipt.', [
+                        'disk' => $disk,
+                        'path' => $oldReceiptPath,
+                    ]);
+                }
+            }
+        }
+
+        return redirect()->route('orders.status.show', ['order_ref' => $order->order_ref])
             ->with('success', 'Bukti pembayaran berhasil diupload! Pesanan Anda sedang diverifikasi.');
     }
 }

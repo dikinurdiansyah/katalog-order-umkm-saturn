@@ -5,7 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PaymentController extends Controller
 {
@@ -47,24 +52,25 @@ class PaymentController extends Controller
             'receipt_image' => 'required|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
-        // ✅ SIMPAN LANGSUNG KE public/receipts (TANPA SYMLINK)
         $file = $request->file('receipt_image');
-        $fileName = time() . '_receipt_' . $file->getClientOriginalName();
-
-        // Pastikan folder receipts ada di dalam public/
-        if (!file_exists(public_path('receipts'))) {
-            mkdir(public_path('receipts'), 0755, true);
+        $path = $this->storeReceipt($file);
+        if ($path === null) {
+            return back()->with('error', 'Bukti pembayaran gagal disimpan. Silakan coba lagi.');
         }
 
-        $file->move(public_path('receipts'), $fileName);
-        $path = 'receipts/' . $fileName;
+        try {
+            Payment::create([
+                'order_id' => $validated['order_id'],
+                'amount_paid' => $validated['amount_paid'],
+                'receipt_image_path' => $path,
+                'payment_status' => 'PENDING_REVIEW',
+            ]);
+        } catch (QueryException $e) {
+            $this->deleteReceipt($path);
+            report($e);
 
-        Payment::create([
-            'order_id' => $validated['order_id'],
-            'amount_paid' => $validated['amount_paid'],
-            'receipt_image_path' => $path,
-            'payment_status' => 'PENDING_REVIEW',
-        ]);
+            return back()->with('error', 'Bukti pembayaran gagal disimpan. Silakan coba lagi.');
+        }
 
         return redirect()->route('admin.payments')
             ->with('success', 'Bukti pembayaran berhasil diupload.');
@@ -85,53 +91,96 @@ class PaymentController extends Controller
             'admin_notes' => 'nullable|string',
         ]);
 
+        if (
+            $validated['payment_status'] === 'VERIFIED'
+            && (float) $validated['amount_paid'] < (float) $payment->order->total_amount
+        ) {
+            return back()->withErrors([
+                'amount_paid' => 'Jumlah pembayaran terverifikasi tidak boleh kurang dari total tagihan.',
+            ])->withInput();
+        }
+
+        if (
+            $payment->payment_status !== 'PENDING_REVIEW'
+            && $validated['payment_status'] !== $payment->payment_status
+        ) {
+            return back()->with('error', 'Status pembayaran yang sudah diputuskan tidak dapat diubah.');
+        }
+
+        $oldReceiptPath = null;
+        $newReceiptPath = null;
         if ($request->hasFile('receipt_image')) {
-            // Hapus file lama jika ada
-            if ($payment->receipt_image_path && file_exists(public_path($payment->receipt_image_path))) {
-                unlink(public_path($payment->receipt_image_path));
+            $newReceiptPath = $this->storeReceipt($request->file('receipt_image'));
+            if ($newReceiptPath === null) {
+                return back()->with('error', 'Bukti pembayaran gagal disimpan. Silakan coba lagi.');
             }
-
-            // Upload file baru ke public/receipts
-            $file = $request->file('receipt_image');
-            $fileName = time() . '_receipt_' . $file->getClientOriginalName();
-            $file->move(public_path('receipts'), $fileName);
-            $validated['receipt_image_path'] = 'receipts/' . $fileName;
+            $validated['receipt_image_path'] = $newReceiptPath;
         }
 
-        // Logic VERIFIED
-        if ($validated['payment_status'] === 'VERIFIED' && $payment->payment_status !== 'VERIFIED') {
-            $validated['verified_at'] = now();
-            $totalBill = $payment->order->total_amount;
-            $amountPaid = $validated['amount_paid'];
-            $changeAmount = $amountPaid - $totalBill;
-            $validated['change_amount'] = $changeAmount > 0 ? $changeAmount : 0;
+        try {
+            $updated = DB::transaction(function () use ($payment, $validated, &$oldReceiptPath) {
+                $lockedPayment = Payment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
+                if (
+                    $lockedPayment->payment_status !== 'PENDING_REVIEW'
+                    && $validated['payment_status'] !== $lockedPayment->payment_status
+                ) {
+                    return false;
+                }
 
-            if ($payment->order) {
-                $payment->order->update(['status' => 'DIPROSES']);
-            }
-        }
+                $order = Order::whereKey($lockedPayment->order_id)->lockForUpdate()->firstOrFail();
+                $oldReceiptPath = $lockedPayment->receipt_image_path;
+                if (
+                    $validated['payment_status'] === 'VERIFIED'
+                    && (float) $validated['amount_paid'] < (float) $order->total_amount
+                ) {
+                    return false;
+                }
 
-        // Logic REJECTED
-        if ($validated['payment_status'] === 'REJECTED' && $payment->payment_status !== 'REJECTED') {
-            $validated['verified_at'] = null;
-            $validated['change_amount'] = 0;
+                if ($validated['payment_status'] === 'VERIFIED' && $lockedPayment->payment_status !== 'VERIFIED') {
+                    $validated['verified_at'] = now();
+                    $validated['change_amount'] = max(
+                        0,
+                        (float) $validated['amount_paid'] - (float) $order->total_amount
+                    );
+                    $order->update(['status' => 'DIPROSES']);
+                } elseif ($validated['payment_status'] === 'REJECTED') {
+                    $validated['verified_at'] = null;
+                    $validated['change_amount'] = 0;
 
-            if ($payment->order) {
-                foreach ($payment->order->orderItems as $item) {
-                    $product = Product::find($item->product_id);
-                    if ($product) {
-                        $product->increment('stock', $item->quantity);
+                    if ($lockedPayment->payment_status !== 'REJECTED') {
+                        foreach ($order->orderItems as $item) {
+                            Product::whereKey($item->product_id)->increment('stock', $item->quantity);
+                        }
+
+                        $order->update([
+                            'status' => 'DIBATALKAN',
+                            'rejection_reason' => $validated['admin_notes'] ?? 'Pembayaran ditolak',
+                        ]);
                     }
                 }
 
-                $payment->order->update([
-                    'status' => 'DIBATALKAN',
-                    'rejection_reason' => $validated['admin_notes'] ?? 'Pembayaran ditolak',
-                ]);
+                return $lockedPayment->update($validated);
+            });
+        } catch (QueryException $e) {
+            if ($newReceiptPath) {
+                $this->deleteReceipt($newReceiptPath);
             }
+            report($e);
+
+            return back()->with('error', 'Pembayaran gagal diperbarui. Silakan coba lagi.');
         }
 
-        $payment->update($validated);
+        if (!$updated) {
+            if ($newReceiptPath) {
+                $this->deleteReceipt($newReceiptPath);
+            }
+
+            return back()->with('error', 'Status pembayaran berubah. Muat ulang halaman sebelum mencoba lagi.');
+        }
+
+        if ($newReceiptPath) {
+            $this->deleteReceipt($oldReceiptPath);
+        }
 
         return redirect()->route('admin.payments')
             ->with('success', 'Pembayaran berhasil diperbarui.');
@@ -139,76 +188,12 @@ class PaymentController extends Controller
 
     public function destroy(Payment $payment)
     {
-        if ($payment->receipt_image_path && file_exists(public_path($payment->receipt_image_path))) {
-            unlink(public_path($payment->receipt_image_path));
-        }
-
+        $receiptPath = $payment->receipt_image_path;
         $payment->delete();
+        $this->deleteReceipt($receiptPath);
 
         return redirect()->route('admin.payments')
             ->with('success', 'Pembayaran berhasil dihapus.');
-    }
-
-    // ==========================================
-    // ✅ CUSTOMER: Upload / Upload Ulang Bukti Bayar (TANPA LOGIN)
-    // ==========================================
-    public function storeGuest(Request $request)
-    {
-        $order = Order::find($request->input('order_id'));
-        if ($order && ($order->payment_method === 'COD' || $order->metode_pembayaran === 'Tunai')) {
-            return back()->with('error', 'Pembayaran tunai tidak memerlukan upload bukti transfer.');
-        }
-
-        $validated = $request->validate([
-            'order_id' => 'required|exists:orders,id',
-            'amount_paid' => 'required|numeric|min:0',
-            'receipt_image' => 'required|image|mimes:jpeg,png,jpg|max:2048',
-        ]);
-
-        $order = Order::findOrFail($validated['order_id']);
-
-        if ($order->payment && $order->payment->payment_status === 'VERIFIED') {
-            return back()->with('error', 'Order ini sudah lunas. Tidak perlu upload lagi.');
-        }
-
-        // ✅ SIMPAN LANGSUNG KE public/receipts
-        $file = $request->file('receipt_image');
-        $fileName = time() . '_receipt_' . $file->getClientOriginalName();
-
-        if (!file_exists(public_path('receipts'))) {
-            mkdir(public_path('receipts'), 0755, true);
-        }
-
-        $file->move(public_path('receipts'), $fileName);
-        $path = 'receipts/' . $fileName;
-
-        if ($order->payment) {
-            // Hapus gambar lama yang ditolak
-            if ($order->payment->receipt_image_path && file_exists(public_path($order->payment->receipt_image_path))) {
-                unlink(public_path($order->payment->receipt_image_path));
-            }
-
-            $order->payment->update([
-                'amount_paid' => $validated['amount_paid'],
-                'receipt_image_path' => $path,
-                'payment_status' => 'PENDING_REVIEW',
-                'admin_notes' => null,
-                'verified_at' => null,
-                'change_amount' => 0,
-            ]);
-        } else {
-            Payment::create([
-                'order_id' => $validated['order_id'],
-                'amount_paid' => $validated['amount_paid'],
-                'receipt_image_path' => $path,
-                'payment_status' => 'PENDING_REVIEW',
-            ]);
-        }
-
-        $order->update(['status' => 'MENUNGGU_KONFIRMASI']);
-
-        return redirect()->route('orders.status.show', $order)
-            ->with('success', 'Bukti pembayaran berhasil diupload! Menunggu verifikasi admin.');
     }
 
     // ==========================================
@@ -221,38 +206,103 @@ class PaymentController extends Controller
             'admin_notes' => 'nullable|string|max:500',
         ]);
 
-        if ($validated['payment_status'] === 'VERIFIED') {
-            $totalBill = $payment->order->total_amount;
-            $amountPaid = $payment->amount_paid;
-            $changeAmount = $amountPaid - $totalBill;
+        try {
+            $result = DB::transaction(function () use ($payment, $validated) {
+                $lockedPayment = Payment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
+                if ($lockedPayment->payment_status !== 'PENDING_REVIEW') {
+                    return ['error' => 'Status pembayaran sudah berubah. Muat ulang halaman sebelum mencoba lagi.'];
+                }
 
-            $payment->update([
-                'payment_status' => 'VERIFIED',
-                'change_amount' => $changeAmount > 0 ? $changeAmount : 0,
-                'admin_notes' => $validated['admin_notes'] ?? 'Pembayaran diverifikasi',
-                'verified_at' => now(),
-            ]);
+                $order = Order::whereKey($lockedPayment->order_id)->lockForUpdate()->firstOrFail();
 
-            $payment->order->update(['status' => 'DIPROSES']);
+                if ($validated['payment_status'] === 'VERIFIED') {
+                    $amountPaid = (float) $lockedPayment->amount_paid;
+                    $totalBill = (float) $order->total_amount;
+                    if ($amountPaid < $totalBill) {
+                        return ['error' => 'Pembayaran tidak dapat diverifikasi karena jumlahnya kurang dari total tagihan.'];
+                    }
 
-            return back()->with('success', '✅ Pembayaran diverifikasi! Kembalian: Rp ' . number_format($changeAmount > 0 ? $changeAmount : 0, 0, ',', '.'));
+                    $changeAmount = $amountPaid - $totalBill;
+                    $lockedPayment->update([
+                        'payment_status' => 'VERIFIED',
+                        'change_amount' => $changeAmount,
+                        'admin_notes' => $validated['admin_notes'] ?? 'Pembayaran diverifikasi',
+                        'verified_at' => now(),
+                    ]);
+                    $order->update(['status' => 'DIPROSES']);
+
+                    return ['change_amount' => $changeAmount];
+                }
+
+                $lockedPayment->update([
+                    'payment_status' => 'REJECTED',
+                    'admin_notes' => $validated['admin_notes'] ?? 'Pembayaran ditolak',
+                    'verified_at' => null,
+                    'change_amount' => 0,
+                ]);
+                $order->update(['status' => 'MENUNGGU_KONFIRMASI']);
+
+                return ['rejected' => true];
+            });
+        } catch (QueryException $e) {
+            report($e);
+
+            return back()->with('error', 'Pembayaran gagal diperbarui. Silakan coba lagi.');
         }
 
-        if ($validated['payment_status'] === 'REJECTED') {
-            $payment->update([
-                'payment_status' => 'REJECTED',
-                'admin_notes' => $validated['admin_notes'] ?? 'Pembayaran ditolak',
-                'verified_at' => null,
-                'change_amount' => 0,
-            ]);
+        if (isset($result['error'])) {
+            return back()->with('error', $result['error']);
+        }
 
-            $payment->order->update([
-                'status' => 'MENUNGGU_KONFIRMASI',
-            ]);
+        if (array_key_exists('change_amount', $result)) {
+            return back()->with('success', 'Pembayaran diverifikasi! Kembalian: Rp ' . number_format($result['change_amount'], 0, ',', '.'));
+        }
 
-            return back()->with('error', '❌ Pembayaran ditolak. Customer dapat upload ulang bukti transfer.');
+        if (!empty($result['rejected'])) {
+            return back()->with('error', 'Pembayaran ditolak. Customer dapat upload ulang bukti transfer.');
         }
 
         return back()->with('error', 'Status tidak valid.');
+    }
+
+    private function storeReceipt(UploadedFile $file): ?string
+    {
+        $filename = Str::uuid()->toString() . '.' . $file->extension();
+        $path = $file->storeAs('receipts', $filename, 'local');
+
+        return $path === false ? null : $path;
+    }
+
+    private function deleteReceipt(?string $path): void
+    {
+        if (!$path) {
+            return;
+        }
+
+        $path = str_replace('\\', '/', $path);
+        if (str_starts_with($path, 'receipts/')) {
+            foreach (['local', 'public'] as $disk) {
+                if (Storage::disk($disk)->exists($path) && !Storage::disk($disk)->delete($path)) {
+                    logger()->warning('Could not remove receipt from storage disk.', [
+                        'disk' => $disk,
+                        'path' => $path,
+                    ]);
+                }
+            }
+
+            $legacyPath = public_path('receipts/' . basename($path));
+            if (is_file($legacyPath) && !unlink($legacyPath)) {
+                logger()->warning('Could not remove legacy public receipt.', ['path' => $path]);
+            }
+        } elseif (str_starts_with($path, 'bukti_pembayaran/')) {
+            foreach (['local', 'public'] as $disk) {
+                if (Storage::disk($disk)->exists($path) && !Storage::disk($disk)->delete($path)) {
+                    logger()->warning('Could not remove receipt from storage disk.', [
+                        'disk' => $disk,
+                        'path' => $path,
+                    ]);
+                }
+            }
+        }
     }
 }

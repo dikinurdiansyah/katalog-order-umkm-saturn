@@ -76,7 +76,12 @@
                         <i class="bi bi-person-circle"></i> Bpk. Santoso (Owner)
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="{{ route('owner.logout') }}">[ KELUAR DARI PORTAL ]</a></li>
+                        <li>
+                            <form method="POST" action="{{ route('owner.logout') }}">
+                                @csrf
+                                <button type="submit" class="dropdown-item">[ KELUAR DARI PORTAL ]</button>
+                            </form>
+                        </li>
                     </ul>
                 </div>
             </div>
@@ -132,7 +137,7 @@
                         <div class="kpi-card">
                             <div class="kpi-label">TOTAL OMZET TERKUMULASI</div>
                             <div class="kpi-value" style="font-size: 1.5rem;">Rp {{ number_format($totalRevenue, 0, ',', '.') }}</div>
-                            <div class="kpi-sub">Dari 5 Produk Teratas</div>
+                            <div class="kpi-sub">Dari seluruh pesanan selesai</div>
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -145,15 +150,15 @@
                     <div class="col-md-3">
                         <div class="kpi-card">
                             <div class="kpi-label">PRODUK MARGIN TERTINGGI</div>
-                            <div class="kpi-value" style="font-size: 1.3rem;">{{ $topMarginProduct->name ?? 'N/A' }}</div>
-                            <div class="kpi-sub">Estimasi Margin: {{ $topMargin }}%</div>
+                            <div class="kpi-value" style="font-size: 1.3rem;">Belum tersedia</div>
+                            <div class="kpi-sub">Data harga pokok produk belum dicatat</div>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="kpi-card">
                             <div class="kpi-label">TOTAL DISKON PROMO</div>
                             <div class="kpi-value" style="font-size: 1.5rem; color: var(--orange-fav);">Rp {{ number_format($totalDiscount, 0, ',', '.') }}</div>
-                            <div class="kpi-sub">ROI Promo: {{ $promoROI }}x Lipat</div>
+                            <div class="kpi-sub">ROI belum dapat dihitung tanpa data biaya produk</div>
                         </div>
                     </div>
                 </div>

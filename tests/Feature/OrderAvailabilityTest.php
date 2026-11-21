@@ -141,6 +141,33 @@ class OrderAvailabilityTest extends TestCase
         $this->assertDatabaseCount('payments', 0);
     }
 
+    public function test_admin_cannot_verify_payment_below_the_order_total(): void
+    {
+        $admin = User::create([
+            'name' => 'Admin',
+            'email' => 'verify-admin@example.test',
+            'password_hash' => bcrypt('password'),
+            'role' => 'ADMIN',
+        ]);
+        $order = $this->createOrder('QRIS', 'MENUNGGU_KONFIRMASI', 9000);
+        $payment = Payment::create([
+            'order_id' => $order->id,
+            'amount_paid' => 8000,
+            'receipt_image_path' => null,
+            'payment_status' => 'PENDING_REVIEW',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.payments.verify', $payment), ['payment_status' => 'VERIFIED'])
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $payment->id,
+            'payment_status' => 'PENDING_REVIEW',
+        ]);
+    }
+
     public function test_admin_receipt_shows_fulfillment_specific_statuses(): void
     {
         $admin = User::create([
@@ -176,7 +203,7 @@ class OrderAvailabilityTest extends TestCase
 
         $storedFile = null;
         try {
-            $response = $this->post(route('orders.uploadBukti', $order), [
+            $response = $this->post(route('orders.uploadBukti', ['order_ref' => $order->order_ref]), [
                 'receipt_image' => UploadedFile::fake()->createWithContent(
                     'receipt.png',
                     base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/r9sAAAAASUVORK5CYII=')
@@ -185,17 +212,17 @@ class OrderAvailabilityTest extends TestCase
 
             $payment = $order->payment()->first();
             if ($payment?->receipt_image_path) {
-                $storedFile = storage_path('app/public/' . $payment->receipt_image_path);
+                $storedFile = storage_path('app/private/' . $payment->receipt_image_path);
             }
 
             $response
-                ->assertRedirect(route('orders.status.show', $order))
+                ->assertRedirect(route('orders.status.show', ['order_ref' => $order->order_ref]))
                 ->assertSessionHas('success');
 
             $this->assertNotNull($payment);
             $this->assertSame('PENDING_REVIEW', $payment->payment_status);
             $this->assertSame('9000.00', $payment->amount_paid);
-            $this->assertStringStartsWith('bukti_pembayaran/', $payment->receipt_image_path);
+            $this->assertStringStartsWith('receipts/', $payment->receipt_image_path);
 
             $this->assertNotNull($storedFile);
             $this->assertFileExists($storedFile);
@@ -210,7 +237,7 @@ class OrderAvailabilityTest extends TestCase
     {
         $order = $this->createOrder('QRIS', 'MENUNGGU_KONFIRMASI', 9000);
 
-        $this->post(route('orders.uploadBukti', $order), [
+        $this->post(route('orders.uploadBukti', ['order_ref' => $order->order_ref]), [
             'receipt_image' => UploadedFile::fake()->createWithContent('receipt.png', 'not an image'),
         ])
             ->assertSessionHasErrors('receipt_image');
@@ -227,7 +254,7 @@ class OrderAvailabilityTest extends TestCase
             'role' => 'ADMIN',
         ]);
         $order = $this->createOrder('QRIS', 'MENUNGGU_KONFIRMASI', 9000);
-        $directory = storage_path('app/public/bukti_pembayaran');
+        $directory = storage_path('app/private/bukti_pembayaran');
         $filename = 'test-' . bin2hex(random_bytes(6)) . '.png';
         $filePath = $directory . DIRECTORY_SEPARATOR . $filename;
         if (!is_dir($directory)) {
@@ -261,14 +288,175 @@ class OrderAvailabilityTest extends TestCase
     {
         $order = $this->createOrder('Tunai', 'MENUNGGU_KONFIRMASI', 9000);
 
-        $this->from(route('orders.success', $order))
-            ->post(route('orders.uploadBukti', $order), [
+        $this->from(route('orders.success', ['order_ref' => $order->order_ref]))
+            ->post(route('orders.uploadBukti', ['order_ref' => $order->order_ref]), [
                 'receipt_image' => UploadedFile::fake()->create('receipt.txt'),
             ])
-            ->assertRedirect(route('orders.success', $order))
+            ->assertRedirect(route('orders.success', ['order_ref' => $order->order_ref]))
             ->assertSessionHas('error', 'Pembayaran tunai tidak memerlukan upload bukti transfer.');
 
         $this->assertDatabaseCount('payments', 0);
+    }
+
+    public function test_public_registration_is_disabled(): void
+    {
+        $this->get('/register')->assertNotFound();
+        $this->post('/register', [
+            'name' => 'Owner Palsu',
+            'email' => 'fake-owner@example.test',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'role' => 'OWNER',
+        ])->assertNotFound();
+
+        $this->assertDatabaseMissing('users', ['email' => 'fake-owner@example.test']);
+    }
+
+    public function test_default_demo_passwords_are_rejected_outside_development(): void
+    {
+        User::create([
+            'name' => 'Admin',
+            'email' => 'admin@umkm.com',
+            'password_hash' => bcrypt('password'),
+            'role' => 'ADMIN',
+        ]);
+        User::create([
+            'name' => 'Owner',
+            'email' => 'owner@umkm.com',
+            'password_hash' => bcrypt('password123'),
+            'role' => 'OWNER',
+        ]);
+
+        $originalEnvironment = config('app.env');
+        config(['app.env' => 'production']);
+
+        try {
+            $this->post('/login', [
+                'email' => 'admin@umkm.com',
+                'password' => 'password',
+            ])->assertSessionHasErrors('email');
+
+            $this->post('/owner-login', [
+                'email' => 'owner@umkm.com',
+                'password' => 'password123',
+            ])->assertSessionHasErrors('email');
+        } finally {
+            config(['app.env' => $originalEnvironment]);
+        }
+    }
+
+    public function test_customer_order_details_require_the_order_reference_not_numeric_id(): void
+    {
+        $order = $this->createOrder('QRIS', 'MENUNGGU_KONFIRMASI', 9000);
+
+        $this->get('/status/' . $order->id)->assertNotFound();
+        $this->get(route('orders.status.show', ['order_ref' => $order->order_ref]))
+            ->assertOk()
+            ->assertSee($order->order_ref);
+    }
+
+    public function test_success_page_requires_the_current_order_session(): void
+    {
+        $order = $this->createOrder('QRIS', 'MENUNGGU_KONFIRMASI', 9000);
+        $successUrl = route('orders.success', ['order_ref' => $order->order_ref]);
+
+        $this->get($successUrl)->assertNotFound();
+        $this->withSession(['last_order_id' => $order->id])->get($successUrl)->assertOk();
+    }
+
+    public function test_customer_cannot_replace_a_verified_payment(): void
+    {
+        $order = $this->createOrder('QRIS', 'DIPROSES', 9000);
+        Payment::create([
+            'order_id' => $order->id,
+            'amount_paid' => $order->total_amount,
+            'receipt_image_path' => null,
+            'payment_status' => 'VERIFIED',
+        ]);
+
+        $this->post(route('orders.uploadBukti', ['order_ref' => $order->order_ref]), [
+            'receipt_image' => UploadedFile::fake()->createWithContent(
+                'receipt.png',
+                base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/r9sAAAAASUVORK5CYII=')
+            ),
+        ])
+            ->assertSessionHas('error', 'Pesanan ini tidak dapat menerima bukti pembayaran baru.');
+
+        $this->assertDatabaseHas('payments', [
+            'order_id' => $order->id,
+            'payment_status' => 'VERIFIED',
+            'receipt_image_path' => null,
+        ]);
+    }
+
+    public function test_customer_cannot_fetch_payment_receipts_from_public_storage_route(): void
+    {
+        $directory = storage_path('app/public/bukti_pembayaran');
+        $filename = 'private-test-' . bin2hex(random_bytes(6)) . '.png';
+        $filePath = $directory . DIRECTORY_SEPARATOR . $filename;
+        if (!is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+        file_put_contents($filePath, 'private');
+
+        try {
+            $this->get('/storage/bukti_pembayaran/' . $filename)->assertForbidden();
+        } finally {
+            if (is_file($filePath)) {
+                unlink($filePath);
+            }
+        }
+    }
+
+    public function test_percentage_promo_is_limited_to_one_hundred_percent(): void
+    {
+        $admin = User::create([
+            'name' => 'Admin',
+            'email' => 'promo-admin@example.test',
+            'password_hash' => bcrypt('password'),
+            'role' => 'ADMIN',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.promos.store'), [
+                'code' => 'OVER100',
+                'discount_type' => 'PERCENT',
+                'discount_amount' => 101,
+                'min_order_amount' => 0,
+                'valid_until' => now()->addDay()->toDateString(),
+                'is_active' => true,
+            ])
+            ->assertSessionHasErrors('discount_amount');
+
+        $this->assertDatabaseMissing('promos', ['code' => 'OVER100']);
+    }
+
+    public function test_owner_report_counts_only_completed_sales_and_quantities(): void
+    {
+        $owner = User::create([
+            'name' => 'Owner',
+            'email' => 'reports-owner@example.test',
+            'password_hash' => bcrypt('password'),
+            'role' => 'OWNER',
+        ]);
+        $product = $this->createProduct();
+        $completedOrder = $this->createOrder('QRIS', 'SELESAI', 20000);
+        $completedOrder->orderItems()->create([
+            'product_id' => $product->id,
+            'price_at_purchase' => 10000,
+            'quantity' => 2,
+            'subtotal' => 20000,
+        ]);
+        $this->createOrder('QRIS', 'DIBATALKAN', 9000);
+
+        $response = $this->actingAs($owner)
+            ->get(route('owner.reports'))
+            ->assertOk();
+
+        $this->assertEquals(20000, (float) $response->viewData('totalRevenue'));
+        $this->assertEquals(2, (int) $response->viewData('topVolume')->total_qty);
+        $this->assertEquals(2, (int) $response->viewData('products')->first()->total_sold);
+        $response->assertSee('Belum tersedia');
     }
 
     public function test_payment_method_migration_preserves_an_existing_column_on_rollback(): void

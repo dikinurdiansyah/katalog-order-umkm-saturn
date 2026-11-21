@@ -45,4 +45,11 @@ class User extends Authenticatable
     {
         return $this->role === 'OWNER';
     }
+
+    public function isUsingUnsafeSeedPassword(string $password): bool
+    {
+        return !in_array(config('app.env'), ['local', 'testing'], true)
+            && in_array($this->email, ['admin@umkm.com', 'owner@umkm.com'], true)
+            && in_array($password, ['password', 'password123'], true);
+    }
 }

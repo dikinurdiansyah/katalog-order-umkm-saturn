@@ -35,7 +35,8 @@ class Promo extends Model
 
     public function isValid(): bool
     {
-        return $this->is_active && $this->valid_until >= Carbon::now()->startOfDay();
+        return $this->is_active
+            && (!$this->valid_until || $this->valid_until >= Carbon::now()->startOfDay());
     }
 
     public function calculateDiscount(float $subtotal): float
@@ -45,10 +46,10 @@ class Promo extends Model
         }
 
         if ($this->discount_type === 'PERCENT') {
-            return ($subtotal * $this->discount_amount) / 100;
+            return min(($subtotal * $this->discount_amount) / 100, $subtotal);
         }
 
-        return $this->discount_amount;
+        return min($this->discount_amount, $subtotal);
     }
 
     public function scopeActive($query)

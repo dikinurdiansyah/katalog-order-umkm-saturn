@@ -11,29 +11,6 @@ use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
-
-// ==========================================
-// ✅ ROUTE STORAGE - HARUS DI PALING ATAS!
-// ==========================================
-Route::get('/storage/{path}', function ($path) {
-    try {
-        $fullPath = storage_path('app/public/' . $path);
-
-        if (!file_exists($fullPath)) {
-            abort(404, 'File tidak ditemukan: ' . $fullPath);
-        }
-
-        $mimeType = mime_content_type($fullPath);
-
-        return response()->file($fullPath, [
-            'Content-Type' => $mimeType,
-            'Cache-Control' => 'public, max-age=31536000',
-        ]);
-    } catch (\Exception $e) {
-        abort(500, 'Error: ' . $e->getMessage());
-    }
-})->where('path', '.*');
 
 // ==========================================
 // 1. SYSTEM & HEALTH CHECK
@@ -70,9 +47,15 @@ Route::post('/checkout', [OrderController::class, 'store'])->name('orders.store'
 
 Route::post('/promo/check', [OrderController::class, 'checkPromo'])->name('promo.check');
 
-Route::get('/orders/{order}/success', function (Order $order) {
+Route::get('/orders/{order_ref}/success', function (string $order_ref) {
+    if (!preg_match('/\AORD-[A-Z0-9]{10}\z/i', $order_ref)) {
+        abort(404);
+    }
+
+    $order = Order::where('order_ref', strtoupper(trim($order_ref)))->firstOrFail();
+    abort_unless((int) session('last_order_id') === $order->id, 404);
+
     $order->load(['promo', 'orderItems.product', 'payment']);
-    session(['last_order_id' => $order->id]);
     return view('orders.success', compact('order'));
 })->name('orders.success');
 
@@ -81,14 +64,18 @@ Route::get('/orders/{order}/success', function (Order $order) {
 // ==========================================
 Route::get('/status', function (Request $request) {
     $order = null;
+    $reference = $request->query('ref');
 
-    if ($request->has('ref') && !empty($request->ref)) {
+    if (is_string($reference) && trim($reference) !== '') {
+        $reference = strtoupper(trim($reference));
+        if (!preg_match('/\AORD-[A-Z0-9]{10}\z/', $reference)) {
+            abort(404);
+        }
+
         $order = Order::with(['orderItems.product', 'promo'])
-            ->where('order_ref', strtoupper(trim($request->ref)))
+            ->where('order_ref', $reference)
             ->first();
-    }
-
-    if (!$order) {
+    } else {
         $orderId = session('last_order_id');
         if ($orderId) {
             $order = Order::with(['orderItems.product', 'promo'])->find($orderId);
@@ -96,28 +83,30 @@ Route::get('/status', function (Request $request) {
     }
 
     return view('orders.status', compact('order'));
-})->name('orders.status');
+})->middleware('throttle:10,1')->name('orders.status');
 
-Route::get('/status/{order}', function (Order $order) {
+Route::get('/status/{order_ref}', function (string $order_ref) {
+    if (!preg_match('/\AORD-[A-Z0-9]{10}\z/i', $order_ref)) {
+        abort(404);
+    }
+
+    $order = Order::where('order_ref', strtoupper(trim($order_ref)))->firstOrFail();
     $order->load(['orderItems.product', 'promo']);
     return view('orders.status', compact('order'));
-})->name('orders.status.show');
+})->middleware('throttle:10,1')->name('orders.status.show');
 
 // ==========================================
 // 5. PUBLIC PAYMENT UPLOAD (KHUSUS PELANGGAN)
 // ==========================================
-Route::post('/payments/guest-upload', [PaymentController::class, 'storeGuest'])->name('payments.guest.store');
-
-// ✅ TAMBAHAN: Route untuk upload bukti pembayaran di halaman success
-Route::post('/orders/{order}/upload-bukti', [OrderController::class, 'uploadBukti'])->name('orders.uploadBukti');
+Route::post('/orders/{order_ref}/upload-bukti', [OrderController::class, 'uploadBukti'])
+    ->middleware('throttle:5,1')
+    ->name('orders.uploadBukti');
 
 // ==========================================
 // 6. AUTHENTICATION (KHUSUS ADMIN/OWNER)
 // ==========================================
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthController::class, 'login']);
-Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
-Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
@@ -189,7 +178,9 @@ Route::get('/owner-login', function () {
     return view('admin.owner.login');
 })->name('owner.login');
 
-Route::post('/owner-login', [AdminController::class, 'ownerLogin'])->name('owner.login.post');
+Route::post('/owner-login', [AdminController::class, 'ownerLogin'])
+    ->middleware('throttle:5,1')
+    ->name('owner.login.post');
 
 Route::middleware(['auth', 'role:OWNER'])->prefix('owner')->name('owner.')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'ownerDashboard'])->name('dashboard');
@@ -199,10 +190,9 @@ Route::middleware(['auth', 'role:OWNER'])->prefix('owner')->name('owner.')->grou
     Route::get('/export-laporan', [AdminController::class, 'exportLaporan'])->name('export.laporan');
 });
 
-// ✅ DIPERBAIKI: Diubah dari Route::post menjadi Route::get agar bisa dipanggil via link <a>
-Route::get('/owner-logout', function () {
+Route::post('/owner-logout', function () {
     Auth::logout();
     request()->session()->invalidate();
     request()->session()->regenerateToken();
     return redirect()->route('owner.login')->with('success', 'Anda telah keluar dari Portal Owner dengan aman.');
-})->name('owner.logout');
+})->middleware(['auth', 'role:OWNER'])->name('owner.logout');

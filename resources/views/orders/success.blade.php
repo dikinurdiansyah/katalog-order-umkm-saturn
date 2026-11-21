@@ -239,7 +239,7 @@
                             </div>
                         </div>
                     </div>
-                @else
+                @elseif(!isset($order->payment) || $order->payment->payment_status === 'REJECTED')
                     @if($order->metode_pembayaran === 'QRIS')
                     <div class="card-warm p-3 mb-3 text-center" style="background: white; border-radius: 12px; border: 2px dashed var(--brown-dark);">
                         <p class="fw-bold mb-2" style="color: var(--brown-dark); font-size: 0.95rem;">
@@ -279,12 +279,12 @@
                     </div>
                     @else
                     <div class="card-warm p-3 mb-3" style="background: white; border-radius: 12px;">
-                        <p class="mb-0">901796713307.SeaBank</p>
+                        <p class="mb-0">901796713307</p>
                     </div>
                     @endif
 
                     {{-- FORM UPLOAD BUKTI --}}
-                    <form method="POST" action="{{ route('orders.uploadBukti', $order->id) }}" enctype="multipart/form-data">
+                    <form method="POST" action="{{ route('orders.uploadBukti', ['order_ref' => $order->order_ref]) }}" enctype="multipart/form-data">
                         @csrf
 
                         <div class="mb-3">
@@ -307,6 +307,11 @@
                     <small class="text-muted d-block text-center mt-3" style="font-size: 0.8rem;">
                         <i class="bi bi-info-circle"></i> Setelah diupload, status akan menunggu verifikasi admin.
                     </small>
+                @else
+                    <div class="alert alert-info mb-3" style="border-radius: 12px;">
+                        <strong>Bukti pembayaran sedang diperiksa.</strong>
+                        <span>Silakan tunggu verifikasi admin sebelum mengirim bukti lagi.</span>
+                    </div>
                 @endif
             </div>
         @endif
@@ -314,7 +319,7 @@
         <!-- Action Buttons -->
         <div class="d-grid gap-3 mb-4">
             <!-- ✅ DIPERBAIKI: Route diubah dari 'orders.show' menjadi 'orders.status.show' -->
-            <a href="{{ route('orders.status.show', $order->id) }}" class="btn-brown w-100 d-flex justify-content-center align-items-center gap-2 py-3" style="border-radius: 12px; font-size: 1rem; font-weight: 700; text-decoration: none;">
+            <a href="{{ route('orders.status.show', ['order_ref' => $order->order_ref]) }}" class="btn-brown w-100 d-flex justify-content-center align-items-center gap-2 py-3" style="border-radius: 12px; font-size: 1rem; font-weight: 700; text-decoration: none;">
                 <i class="bi bi-truck"></i> Lacak Status Pesanan
             </a>
 
